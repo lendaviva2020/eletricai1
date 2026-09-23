@@ -1,0 +1,6 @@
+{
+  "name": "EletricAI - Sistema Operacional Industrial com IA",
+  "description": "Plataforma SaaS multi-tenant que unifica engenharia elétrica (NBR 5410, NBR 14039, NR-10), automação IEC 61131-3, PLC, SCADA e Digital Twin com IA generativa e shared tag engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
