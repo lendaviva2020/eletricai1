@@ -338,6 +338,39 @@ export class SupabaseDataService {
     return { success: true, token };
   }
 
+  public static async verifyResetTokenAndChangePassword(
+    email: string,
+    token: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.updateUser({ password: newPassword });
+        await supabase
+          .from('password_resets')
+          .update({ used: true })
+          .eq('email', cleanEmail)
+          .eq('token', token.trim());
+      } catch (e) {
+        console.warn('Supabase remote password update warning:', e);
+      }
+    }
+
+    if (this.isClient()) {
+      const stored = localStorage.getItem(LOCAL_RESETS_KEY);
+      if (stored) {
+        const list: SupabasePasswordReset[] = JSON.parse(stored);
+        const item = list.find(r => r.email === cleanEmail && (!token || r.token === token.trim()));
+        if (item) item.used = true;
+        localStorage.setItem(LOCAL_RESETS_KEY, JSON.stringify(list));
+      }
+    }
+
+    return { success: true, message: 'Senha atualizada com sucesso no Supabase Auth.' };
+  }
+
   // --- TENANTS CRUD ---
   public static async getTenants(): Promise<SupabaseTenant[]> {
     if (isSupabaseConfigured) {

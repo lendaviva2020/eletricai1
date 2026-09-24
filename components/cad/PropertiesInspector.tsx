@@ -57,7 +57,14 @@ export function PropertiesInspector({
     : null;
 
   return (
-    <div className="w-84 h-full bg-[#11141A] border-l border-[#232833] flex flex-col z-20 select-none shadow-2xl overflow-hidden text-slate-200">
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-y-0 right-0 w-full sm:w-84 md:relative md:w-84 h-full bg-[#11141A] border-l border-[#232833] flex flex-col z-40 md:z-20 select-none shadow-2xl overflow-hidden text-slate-200">
       {/* Header */}
       <div className="h-12 px-4 border-b border-[#232833] flex items-center justify-between bg-[#161A22]">
         <div className="flex items-center gap-2">
@@ -316,5 +323,6 @@ export function PropertiesInspector({
         </div>
       </div>
     </div>
-  );
+  </>
+);
 }

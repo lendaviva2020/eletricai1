@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { Tenant, TenantRole } from '@/types/electrical';
+import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
+import { DatabaseAuthService } from '@/lib/database-auth-service';
 import {
   Zap,
   Building2,
@@ -28,6 +30,7 @@ import {
   Sparkles,
   Server,
   Activity,
+  Database,
 } from 'lucide-react';
 
 interface TenantCardData {
@@ -155,6 +158,44 @@ export function TenantSelectorScreen() {
 
   const [tenantsList, setTenantsList] = useState<TenantCardData[]>(initialTenants);
 
+  // Load tenants from Supabase on mount
+  useEffect(() => {
+    SupabaseDataService.getTenants().then(remoteTenants => {
+      if (remoteTenants && remoteTenants.length > 0) {
+        const mapped: TenantCardData[] = remoteTenants.map(rt => {
+          const isEnterprise = rt.category === 'enterprise';
+          return {
+            id: rt.id,
+            name: rt.name,
+            subname: rt.subname || 'Subestação Primária & CCMs',
+            cnpj: rt.cnpj || '00.000.000/0001-00',
+            location: rt.location || 'Brasil',
+            category: rt.category || 'client',
+            role: isEnterprise ? 'admin' : 'engineer',
+            roleLabel: isEnterprise ? 'ADMIN' : 'ENGINEER',
+            metrics: [
+              { label: 'Tags Únicas Cadastradas', value: (rt.tags_count || 500).toLocaleString('pt-BR'), isHighlight: true },
+              {
+                label: 'Status Telemetria',
+                value: 'MODBUS TCP / OPC-UA (ONLINE)',
+                isStatus: true,
+                statusOk: true,
+              },
+              { label: 'Conformidade NBR 5410', value: '98.5%', isHighlight: true },
+            ],
+            buttonText: 'ABRIR WORKSPACE PRINCIPAL →',
+            buttonStyle: isEnterprise ? 'amber' : 'cyan',
+            iconType: isEnterprise ? 'factory' : 'substation',
+            tagsCount: rt.tags_count || 500,
+          };
+        });
+        setTenantsList(mapped);
+      }
+    }).catch(err => {
+      console.warn('Supabase tenants fetch note:', err);
+    });
+  }, []);
+
   const handleSelectTenant = (item: TenantCardData) => {
     const tenantPayload: Tenant = {
       id: item.id,
@@ -167,7 +208,7 @@ export function TenantSelectorScreen() {
     selectTenantAndOpenWorkspace(tenantPayload, item.role);
   };
 
-  const handleCreateTenant = (e: React.FormEvent) => {
+  const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlantName.trim()) return;
 
@@ -200,6 +241,35 @@ export function TenantSelectorScreen() {
 
     setTenantsList(prev => [...prev, newCard]);
     setProvisionSuccess(true);
+
+    // Save to Supabase
+    try {
+      await SupabaseDataService.createTenant({
+        name: newCard.name,
+        subname: newCard.subname,
+        cnpj: newCard.cnpj,
+        location: newCard.location,
+        plan: 'Enterprise Multi-Plant',
+        voltage: newVoltage,
+        tags_count: 48,
+        members_count: 1,
+        category: 'enterprise',
+      });
+      DatabaseAuthService.addTenant({
+        name: newCard.name,
+        subname: newCard.subname,
+        cnpj: newCard.cnpj,
+        location: newCard.location,
+        plan: 'Enterprise Multi-Plant',
+        voltage: newVoltage,
+        tagsCount: 48,
+        membersCount: 1,
+        category: 'enterprise',
+      });
+    } catch (err) {
+      console.warn('Supabase tenant creation note:', err);
+    }
+
     setTimeout(() => {
       setProvisionSuccess(false);
       setCreateTenantModalOpen(false);

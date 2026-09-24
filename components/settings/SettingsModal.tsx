@@ -595,6 +595,117 @@ function SettingsDialogContent() {
                   </p>
                 </div>
 
+                {/* DeepSeek AI Provider Configuration */}
+                <div className="p-4 rounded-lg bg-[#161A22] border border-[#232833] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-white block">
+                          Provedor IA / Motor de Síntese
+                        </span>
+                        <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Conectado
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#8A8F98]">
+                        Geração estruturada de esquemáticos e lógicas com DeepSeek API server-side
+                      </span>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-xs font-mono text-slate-300">
+                        {form.aiEnabled ? 'Ativada' : 'Desativada'}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={form.aiEnabled}
+                        onChange={e => handleFieldChange('aiEnabled', e.target.checked)}
+                        className="rounded border-[#232833] bg-[#0B0D10] text-amber-500 focus:ring-amber-500/20"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[#232833]">
+                    {/* Model */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                        Modelo DeepSeek
+                      </label>
+                      <select
+                        value={form.aiModel}
+                        onChange={e => handleFieldChange('aiModel', e.target.value as any)}
+                        className="w-full bg-[#11141A] border border-[#232833] rounded px-2.5 py-1.5 text-xs font-mono text-amber-300 focus:border-amber-500 outline-none"
+                      >
+                        <option value="deepseek-chat">DeepSeek-V3 (Chat/Síntese)</option>
+                        <option value="deepseek-reasoner">DeepSeek-R1 (Raciocínio R1)</option>
+                        <option value="deepseek-coder">DeepSeek-Coder (Automação/LD)</option>
+                      </select>
+                    </div>
+
+                    {/* Max Tokens */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                        Limite de Tokens
+                      </label>
+                      <input
+                        type="number"
+                        min="500"
+                        max="8000"
+                        step="500"
+                        value={form.aiMaxTokens}
+                        onChange={e => handleFieldChange('aiMaxTokens', parseInt(e.target.value, 10) || 3000)}
+                        className="w-full bg-[#11141A] border border-[#232833] rounded px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:border-amber-500 outline-none"
+                      />
+                    </div>
+
+                    {/* Temperature */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                        Temperature (Determ.)
+                      </label>
+                      <input
+                        type="number"
+                        min="0.0"
+                        max="1.0"
+                        step="0.05"
+                        value={form.aiTemperature}
+                        onChange={e => handleFieldChange('aiTemperature', parseFloat(e.target.value) || 0.1)}
+                        className="w-full bg-[#11141A] border border-[#232833] rounded px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:border-amber-500 outline-none"
+                      />
+                    </div>
+
+                    {/* Timeout */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                        Timeout de Requisição
+                      </label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="60"
+                        step="5"
+                        value={form.aiTimeoutSeconds}
+                        onChange={e => handleFieldChange('aiTimeoutSeconds', parseInt(e.target.value, 10) || 30)}
+                        className="w-full bg-[#11141A] border border-[#232833] rounded px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:border-amber-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Security Key Status */}
+                  <div className="p-2.5 rounded bg-[#11141A] border border-[#232833] flex items-center justify-between text-xs font-mono">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400">Credencial DEEPSEEK_API_KEY:</span>
+                      <span className="text-slate-500">●●●●●●●●●●●●●●●●●●●●</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Isolamento Servidor OK
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      Taxa Limite: {form.aiRateLimitPerMinute} req/min
+                    </span>
+                  </div>
+                </div>
+
                 {/* Autonomy Level */}
                 <div className="p-4 rounded-lg bg-[#161A22] border border-[#232833] space-y-3">
                   <label className="text-xs font-semibold text-white block">

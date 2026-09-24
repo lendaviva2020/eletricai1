@@ -33,12 +33,19 @@ export interface SystemSettings {
   ambientTemperatureC: number; // Ex: 30°C ar, 40°C CCM
   conduitGroupFactor: number; // Fator de agrupamento ex: 0.80
 
-  // Aba 3: IA Copilot
+  // Aba 3: IA Copilot & DeepSeek Engine
   autonomyLevel: AiAutonomyLevel;
   calculationEngineIsolation: CalculationEngineIsolation;
   requireArtValidation: boolean;
   deterministicStrictNbr: boolean;
   notifyOnPatchDiff: boolean;
+  aiEnabled: boolean;
+  aiModel: 'deepseek-chat' | 'deepseek-reasoner' | 'deepseek-coder';
+  aiMaxTokens: number;
+  aiTemperature: number;
+  aiTimeoutSeconds: number;
+  aiRateLimitPerMinute: number;
+  aiProviderStatus: 'connected' | 'offline';
 
   // Aba 4: Rede & CLP
   protocol: IndustrialProtocol;
@@ -75,6 +82,13 @@ export const ABNT_DEFAULT_SETTINGS: SystemSettings = {
   requireArtValidation: true,
   deterministicStrictNbr: true,
   notifyOnPatchDiff: true,
+  aiEnabled: true,
+  aiModel: 'deepseek-chat',
+  aiMaxTokens: 3000,
+  aiTemperature: 0.1,
+  aiTimeoutSeconds: 30,
+  aiRateLimitPerMinute: 20,
+  aiProviderStatus: 'connected',
 
   // Aba 4: Rede & CLP
   protocol: 'MODBUS_TCP',

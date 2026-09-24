@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  supabase,
+  isSupabaseConfigured,
+  SupabaseDataService,
+  SupabaseUserProfile,
+  SupabaseTenant,
+  SupabasePasswordReset,
+  SupabaseEnterpriseLead,
+} from '@/lib/supabase';
+
 export interface PersistentUser {
   id: string;
   email: string;
@@ -121,6 +131,37 @@ export class DatabaseAuthService {
     return typeof window !== 'undefined';
   }
 
+  // Map SupabaseUserProfile to PersistentUser
+  private static toPersistentUser(sbUser: SupabaseUserProfile): PersistentUser {
+    return {
+      id: sbUser.id,
+      email: sbUser.email,
+      name: sbUser.name,
+      role: sbUser.role,
+      creaNumber: sbUser.crea_number,
+      tenantId: sbUser.tenant_id,
+      createdAt: sbUser.created_at || new Date().toISOString(),
+      lastLoginAt: sbUser.last_login_at || new Date().toISOString(),
+    };
+  }
+
+  // Map SupabaseTenant to PersistentTenant
+  private static toPersistentTenant(sbTenant: SupabaseTenant): PersistentTenant {
+    return {
+      id: sbTenant.id,
+      name: sbTenant.name,
+      subname: sbTenant.subname || '',
+      cnpj: sbTenant.cnpj || '',
+      location: sbTenant.location || '',
+      plan: sbTenant.plan || 'Industrial Pro',
+      voltage: sbTenant.voltage || '13.8 kV / 380V - 60Hz',
+      tagsCount: sbTenant.tags_count ?? 500,
+      membersCount: sbTenant.members_count ?? 1,
+      category: sbTenant.category || 'client',
+      createdAt: sbTenant.created_at || new Date().toISOString(),
+    };
+  }
+
   // USERS
   public static getUsers(): PersistentUser[] {
     if (!this.isClient()) return INITIAL_DATABASE_USERS;
@@ -134,6 +175,11 @@ export class DatabaseAuthService {
     } catch {
       return INITIAL_DATABASE_USERS;
     }
+  }
+
+  public static async getUsersAsync(): Promise<PersistentUser[]> {
+    const sbUsers = await SupabaseDataService.getUsers();
+    return sbUsers.map(u => this.toPersistentUser(u));
   }
 
   public static saveUsers(users: PersistentUser[]) {
@@ -156,6 +202,11 @@ export class DatabaseAuthService {
     }
   }
 
+  public static async getTenantsAsync(): Promise<PersistentTenant[]> {
+    const sbTenants = await SupabaseDataService.getTenants();
+    return sbTenants.map(t => this.toPersistentTenant(t));
+  }
+
   public static saveTenants(tenants: PersistentTenant[]) {
     if (!this.isClient()) return;
     localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(tenants));
@@ -170,6 +221,22 @@ export class DatabaseAuthService {
     };
     tenants.unshift(created);
     this.saveTenants(tenants);
+
+    // Sync to Supabase in background
+    if (isSupabaseConfigured) {
+      SupabaseDataService.createTenant({
+        name: newTenant.name,
+        subname: newTenant.subname,
+        cnpj: newTenant.cnpj,
+        location: newTenant.location,
+        plan: newTenant.plan,
+        voltage: newTenant.voltage,
+        tags_count: newTenant.tagsCount,
+        members_count: newTenant.membersCount,
+        category: newTenant.category,
+      }).catch(err => console.warn('Supabase tenant sync notice:', err));
+    }
+
     return created;
   }
 
@@ -203,13 +270,50 @@ export class DatabaseAuthService {
       users.push(newUser);
       this.saveUsers(users);
       user = newUser;
+
+      // Sync user profile to Supabase
+      if (isSupabaseConfigured) {
+        Promise.resolve(
+          supabase
+            .from('user_profiles')
+            .insert({
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name,
+              role: newUser.role,
+              crea_number: newUser.creaNumber,
+              tenant_id: newUser.tenantId,
+            })
+        ).catch(e => console.warn('Supabase user insert note:', e));
+      }
     } else {
       user.lastLoginAt = new Date().toISOString();
       this.saveUsers(users);
     }
 
     this.setCurrentSession(user);
+
+    // Call Supabase login service in parallel
+    if (isSupabaseConfigured) {
+      SupabaseDataService.loginUser(emailOrTag, password).catch(e =>
+        console.warn('Supabase remote session sync note:', e)
+      );
+    }
+
     return { success: true, user };
+  }
+
+  public static async loginWithCredentialsAsync(
+    emailOrTag: string,
+    password?: string
+  ): Promise<{ success: boolean; user?: PersistentUser; error?: string }> {
+    const res = await SupabaseDataService.loginUser(emailOrTag, password);
+    if (res.user) {
+      const pUser = this.toPersistentUser(res.user);
+      this.setCurrentSession(pUser);
+      return { success: true, user: pUser };
+    }
+    return this.loginWithCredentials(emailOrTag, password);
   }
 
   public static registerNewUser(data: {
@@ -239,6 +343,17 @@ export class DatabaseAuthService {
     users.push(newUser);
     this.saveUsers(users);
     this.setCurrentSession(newUser);
+
+    if (isSupabaseConfigured) {
+      SupabaseDataService.registerUser({
+        name: data.name,
+        email: data.email,
+        creaNumber: data.creaNumber,
+        role: data.role,
+        companyName: data.tenantName,
+      }).catch(err => console.warn('Supabase user registration notice:', err));
+    }
+
     return { success: true, user: newUser };
   }
 
@@ -257,8 +372,19 @@ export class DatabaseAuthService {
     if (!this.isClient()) return;
     if (user) {
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(user));
+      SupabaseDataService.setActiveSession({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        crea_number: user.creaNumber,
+        tenant_id: user.tenantId,
+        created_at: user.createdAt,
+        last_login_at: user.lastLoginAt,
+      });
     } else {
       localStorage.removeItem(SESSIONS_STORAGE_KEY);
+      SupabaseDataService.setActiveSession(null);
     }
   }
 
@@ -285,6 +411,12 @@ export class DatabaseAuthService {
       localStorage.setItem(RESETS_STORAGE_KEY, JSON.stringify(list));
     }
 
+    if (isSupabaseConfigured) {
+      SupabaseDataService.requestPasswordReset(email).catch(e =>
+        console.warn('Supabase password reset token dispatch notice:', e)
+      );
+    }
+
     return { success: true, token };
   }
 
@@ -305,5 +437,15 @@ export class DatabaseAuthService {
       createdAt: new Date().toISOString(),
     });
     localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(list));
+
+    if (isSupabaseConfigured) {
+      SupabaseDataService.saveEnterpriseLead({
+        name: lead.name,
+        email: lead.email,
+        company: lead.company,
+        phone: lead.phone,
+        plant_type: lead.plantType,
+      }).catch(err => console.warn('Supabase lead record sync warning:', err));
+    }
   }
 }

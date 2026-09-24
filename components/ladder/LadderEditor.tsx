@@ -809,6 +809,7 @@ export function LadderEditor() {
               onDuplicateElement={() => selectedElement && handleInsertElement(selectedElement.elementType, selectedElement.contactType || selectedElement.coilType, selectedElement.variableName)}
               isSimulationActive={simRunning}
               onToggleForce={handleToggleForce}
+              onClose={() => setSelectedElement(null)}
             />
           </div>
         )}

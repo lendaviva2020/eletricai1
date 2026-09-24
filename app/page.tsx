@@ -19,6 +19,7 @@ import { IndustrialLoginScreen } from '@/components/auth/IndustrialLoginScreen';
 import { TenantSelectorScreen } from '@/components/tenant/TenantSelectorScreen';
 import { PlantCommandDashboard } from '@/components/dashboard/PlantCommandDashboard';
 import { LandingPage } from '@/components/landing/LandingPage';
+import { AiCircuitGenerationModal } from '@/components/ai/AiCircuitGenerationModal';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 function WorkspaceContent() {
@@ -29,6 +30,13 @@ function WorkspaceContent() {
     isAuthenticated,
     isSelectingTenant,
     isViewingLanding,
+    aiGenerationModalOpen,
+    setAiGenerationModalOpen,
+    currentAiSpec,
+    isGeneratingCircuit,
+    generationStep,
+    applyAiCircuitSpecification,
+    requestAiCircuitSynthesis,
   } = useWorkspace();
 
   if (isViewingLanding) {
@@ -63,6 +71,15 @@ function WorkspaceContent() {
       <>
         <PlantCommandDashboard />
         <SettingsModal />
+        <AiCircuitGenerationModal
+          isOpen={aiGenerationModalOpen}
+          onClose={() => setAiGenerationModalOpen(false)}
+          specification={currentAiSpec}
+          isLoading={isGeneratingCircuit}
+          generationStep={generationStep}
+          onApplyCircuit={applyAiCircuitSpecification}
+          onRunPrompt={requestAiCircuitSynthesis}
+        />
       </>
     );
   }
@@ -110,6 +127,17 @@ function WorkspaceContent() {
 
       {/* Global Settings Modal */}
       <SettingsModal />
+
+      {/* DeepSeek AI Circuit Generation & Preview Audit Modal */}
+      <AiCircuitGenerationModal
+        isOpen={aiGenerationModalOpen}
+        onClose={() => setAiGenerationModalOpen(false)}
+        specification={currentAiSpec}
+        isLoading={isGeneratingCircuit}
+        generationStep={generationStep}
+        onApplyCircuit={applyAiCircuitSpecification}
+        onRunPrompt={requestAiCircuitSynthesis}
+      />
     </div>
   );
 }

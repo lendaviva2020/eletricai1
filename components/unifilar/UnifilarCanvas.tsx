@@ -10,6 +10,7 @@ import { SymbolLibrarySidebar } from '@/components/cad/SymbolLibrarySidebar';
 import { PropertiesInspector } from '@/components/cad/PropertiesInspector';
 import { BottomInspectionConsole } from '@/components/cad/BottomInspectionConsole';
 import { TitleBlockSheet } from '@/components/cad/TitleBlockSheet';
+import { generateUniqueComponentId, generateUniqueConnectionId } from '@/lib/utils';
 import {
   RotateCcw,
   Sparkles,
@@ -28,16 +29,12 @@ import {
   Pause,
 } from 'lucide-react';
 
-let connCounter = 1000;
 function generateConnectionId(): string {
-  connCounter += 1;
-  return `conn_${connCounter}`;
+  return generateUniqueConnectionId();
 }
 
-let symbolCounter = 1000;
 function generateComponentId(prefix: string): string {
-  symbolCounter += 1;
-  return `comp_${prefix.toLowerCase()}_${symbolCounter}`;
+  return generateUniqueComponentId(prefix);
 }
 
 export function UnifilarCanvas() {
@@ -341,6 +338,106 @@ export function UnifilarCanvas() {
     setIsPanning(false);
   };
 
+  // Touch handlers for Mobile / Tablet (pan, pinch-to-zoom, drag)
+  const touchStateRef = useRef<{
+    lastDist: number | null;
+    lastTouchX: number;
+    lastTouchY: number;
+    isPinching: boolean;
+  }>({
+    lastDist: null,
+    lastTouchX: 0,
+    lastTouchY: 0,
+    isPinching: false,
+  });
+
+  const handleCanvasTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStateRef.current = {
+        lastDist: dist,
+        lastTouchX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        lastTouchY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        isPinching: true,
+      };
+      setIsPanning(false);
+      setDraggingCompId(null);
+    } else if (e.touches.length === 1) {
+      touchStateRef.current.isPinching = false;
+      touchStateRef.current.lastDist = null;
+      touchStateRef.current.lastTouchX = e.touches[0].clientX;
+      touchStateRef.current.lastTouchY = e.touches[0].clientY;
+
+      if (!draggingCompId) {
+        setIsPanning(true);
+        setStartPan({
+          x: e.touches[0].clientX - pan.x,
+          y: e.touches[0].clientY - pan.y,
+        });
+      }
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStateRef.current.isPinching) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (touchStateRef.current.lastDist && touchStateRef.current.lastDist > 10) {
+        const factor = currentDist / touchStateRef.current.lastDist;
+        setZoom(prev => Math.min(2.5, Math.max(0.35, Number((prev * factor).toFixed(2)))));
+      }
+      touchStateRef.current.lastDist = currentDist;
+    } else if (e.touches.length === 1 && !touchStateRef.current.isPinching) {
+      const touch = e.touches[0];
+      if (draggingCompId) {
+        const rawX = (touch.clientX - pan.x) / zoom - dragOffset.x;
+        const rawY = (touch.clientY - pan.y) / zoom - dragOffset.y;
+        const snappedX = snapToGrid ? Math.round(rawX / gridSize) * gridSize : rawX;
+        const snappedY = snapToGrid ? Math.round(rawY / gridSize) * gridSize : rawY;
+
+        updateComponent(draggingCompId, {
+          x: Math.max(10, Math.round(snappedX)),
+          y: Math.max(10, Math.round(snappedY)),
+        });
+      } else if (isPanning) {
+        setPan({
+          x: touch.clientX - startPan.x,
+          y: touch.clientY - startPan.y,
+        });
+      }
+    }
+  };
+
+  const handleCanvasTouchEnd = () => {
+    touchStateRef.current.isPinching = false;
+    touchStateRef.current.lastDist = null;
+    setDraggingCompId(null);
+    setIsPanning(false);
+  };
+
+  const handleCompTouchStart = (e: React.TouchEvent, comp: ElectricalComponent) => {
+    if (e.touches.length === 1) {
+      e.stopPropagation();
+      setSelectedComponentId(comp.id);
+      setSelectedComponentIds([comp.id]);
+      setIsInspectorOpen(true);
+
+      const touch = e.touches[0];
+      if (!comp.isLocked) {
+        setDraggingCompId(comp.id);
+        setDragOffset({
+          x: (touch.clientX - pan.x) / zoom - comp.x,
+          y: (touch.clientY - pan.y) / zoom - comp.y,
+        });
+      }
+    }
+  };
+
   // Component Drag Start
   const handleCompMouseDown = (e: React.MouseEvent, comp: ElectricalComponent) => {
     if (isPanMode) {
@@ -523,7 +620,11 @@ export function UnifilarCanvas() {
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onWheel={handleWheel}
-          className={`flex-1 h-full bg-[#0B0D10] bg-cad-grid relative overflow-hidden ${
+          onTouchStart={handleCanvasTouchStart}
+          onTouchMove={handleCanvasTouchMove}
+          onTouchEnd={handleCanvasTouchEnd}
+          onTouchCancel={handleCanvasTouchEnd}
+          className={`flex-1 h-full bg-[#0B0D10] bg-cad-grid relative overflow-hidden touch-none ${
             isPanMode
               ? isPanning
                 ? 'cursor-grabbing'
@@ -533,6 +634,25 @@ export function UnifilarCanvas() {
               : 'cursor-default'
           }`}
         >
+          {/* Mobile Quick Floating Tools (Library & Inspector) */}
+          <div className="absolute top-16 left-3 z-30 flex flex-col gap-2 md:hidden">
+            <button
+              onClick={() => setIsLibraryOpen(prev => !prev)}
+              className="h-10 w-10 rounded-full bg-[#161A22] border border-[#232833] text-amber-400 flex items-center justify-center shadow-lg active:scale-95"
+              title="Biblioteca de Símbolos"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+            {selectedComponent && !isInspectorOpen && (
+              <button
+                onClick={() => setIsInspectorOpen(true)}
+                className="h-10 w-10 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-lg font-bold active:scale-95 animate-bounce"
+                title="Propriedades do Elemento"
+              >
+                <Sliders className="h-5 w-5" />
+              </button>
+            )}
+          </div>
           {/* Wire Mode Indicator Banner */}
           {activeCadTool === 'WIRE' && (
             <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-30 bg-amber-500/90 text-black px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-lg flex items-center gap-2 animate-pulse">
@@ -777,7 +897,7 @@ export function UnifilarCanvas() {
             )}
 
             {/* Electrical Components */}
-            {components.map(comp => {
+            {components.map((comp, compIdx) => {
               const isSelected = selectedComponentIds.includes(comp.id) || selectedComponentId === comp.id;
               const isBusbar = comp.category === 'BUSBAR';
               const rotation = comp.rotation || 0;
@@ -797,9 +917,10 @@ export function UnifilarCanvas() {
 
               return (
                 <g
-                  key={comp.id}
+                  key={`${comp.id}_${compIdx}`}
                   transform={`translate(${comp.x}, ${comp.y}) rotate(${rotation}, ${comp.width / 2}, ${comp.height / 2}) scale(${scaleX}, ${scaleY})`}
                   onMouseDown={e => handleCompMouseDown(e, comp)}
+                  onTouchStart={e => handleCompTouchStart(e, comp)}
                   className="cursor-move group"
                 >
                   {/* Outer Pulsing Dashed Halo for Orphan Components */}

@@ -17,6 +17,7 @@ import {
   DigitalTwinHotspot,
   BomItem,
   AiPatchProposal,
+  AiStructuredCircuitSpecification,
   ProjectPage,
   TerminalStrip,
   ElectricalValidationIssue,
@@ -26,6 +27,7 @@ import {
 import { runFullElectricalValidation } from '@/lib/electrical-validation';
 import { generateElectricalDxf } from '@/lib/dxf-generator';
 import { INITIAL_PAGES, INITIAL_TERMINAL_STRIPS } from '@/lib/cad-defaults';
+import { generateUniqueComponentId, generateUniqueConnectionId } from '@/lib/utils';
 import {
   INITIAL_TENANT,
   INITIAL_USER,
@@ -122,6 +124,16 @@ interface WorkspaceContextValue {
   applyPatch: (patch: AiPatchProposal) => void;
   rejectPatch: () => void;
 
+  // AI DeepSeek Structured Circuit Synthesis & Preview
+  aiGenerationModalOpen: boolean;
+  setAiGenerationModalOpen: (open: boolean) => void;
+  currentAiSpec: AiStructuredCircuitSpecification | null;
+  setCurrentAiSpec: (spec: AiStructuredCircuitSpecification | null) => void;
+  isGeneratingCircuit: boolean;
+  generationStep: string;
+  requestAiCircuitSynthesis: (prompt: string) => Promise<void>;
+  applyAiCircuitSpecification: (spec: AiStructuredCircuitSpecification) => void;
+
   // Authentication State
   isAuthenticated: boolean;
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
@@ -211,6 +223,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [whatIfScenario, setWhatIfScenario] = useState<WhatIfScenario>('normal');
   const [bomItems, setBomItems] = useState<BomItem[]>(INITIAL_BOM_ITEMS);
   const [activePatch, setActivePatch] = useState<AiPatchProposal | null>(null);
+  const [aiGenerationModalOpen, setAiGenerationModalOpen] = useState<boolean>(false);
+  const [currentAiSpec, setCurrentAiSpec] = useState<AiStructuredCircuitSpecification | null>(null);
+  const [isGeneratingCircuit, setIsGeneratingCircuit] = useState<boolean>(false);
+  const [generationStep, setGenerationStep] = useState<string>('');
   const [isSimulationRunning, setIsSimulationRunning] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isSelectingTenant, setIsSelectingTenant] = useState<boolean>(true);
@@ -225,8 +241,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         name: session.name,
         email: session.email,
         role: session.role,
-        avatarUrl: '',
         creaNumber: session.creaNumber || 'CREA-SP 50849201',
+        tenantId: session.tenantId || 'tenant_braskem_01',
       });
       setIsAuthenticated(true);
       setIsViewingLanding(false);
@@ -244,8 +260,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           name: res.user.name,
           email: res.user.email,
           role: res.user.role,
-          avatarUrl: '',
           creaNumber: res.user.creaNumber || 'CREA-SP 50849201',
+          tenantId: res.user.tenantId || 'tenant_braskem_01',
         });
       }
     }
@@ -263,7 +279,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const selectTenantAndOpenWorkspace = useCallback((tenantData: Tenant, role?: TenantRole) => {
     setTenant(tenantData);
     if (role) {
-      setUser(prev => ({ ...prev, role }));
+      setUser(prev => ({ ...prev, role, tenantId: tenantData.id }));
     }
     setIsSelectingTenant(false);
   }, []);
@@ -277,8 +293,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         name: res.user.name,
         email: res.user.email,
         role: role || res.user.role,
-        avatarUrl: '',
         creaNumber: res.user.creaNumber || 'CREA-BR 508492/D',
+        tenantId: res.user.tenantId || 'tenant_braskem_01',
       });
     }
     setIsAuthenticated(true);
@@ -412,7 +428,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const addComponent = useCallback((comp: ElectricalComponent) => {
     pushSnapshot();
-    setComponents(prev => [...prev, comp]);
+    setComponents(prev => {
+      // Ensure unique ID even if collision was attempted
+      let finalComp = comp;
+      if (prev.some(c => c.id === comp.id)) {
+        finalComp = { ...comp, id: generateUniqueComponentId(comp.tag || 'comp') };
+      }
+      return [...prev, finalComp];
+    });
     setSelectedComponentId(comp.id);
     setSelectedComponentIds([comp.id]);
   }, [pushSnapshot]);
@@ -469,7 +492,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const compToDup = components.find(c => c.id === selectedComponentId);
     if (!compToDup) return;
     pushSnapshot();
-    const newId = `comp_${Date.now().toString(36)}`;
+    const newId = generateUniqueComponentId(compToDup.tag || 'comp');
     const newTag = `${compToDup.tag}_COPY`;
     const duplicated: ElectricalComponent = {
       ...compToDup,
@@ -627,122 +650,178 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     URL.revokeObjectURL(url);
   }, [loadList]);
 
-  const executeAiNaturalCommand = useCallback(async (command: string): Promise<string> => {
+  // AI DeepSeek Structured Circuit Synthesis & Engineering Validation
+  const requestAiCircuitSynthesis = useCallback(async (promptText: string) => {
+    setIsGeneratingCircuit(true);
+    setAiGenerationModalOpen(true);
+    setGenerationStep('Analisando solicitação em linguagem natural com DeepSeek...');
+
+    try {
+      const existingTags = components.map(c => c.tag).filter(Boolean);
+      const existingComponents = components.map(c => ({
+        tag: c.tag,
+        name: c.name,
+        category: c.category,
+        nominalCurrent: c.nominalCurrent,
+      }));
+
+      setTimeout(() => {
+        setGenerationStep('Identificando componentes e topologia do circuito...');
+      }, 500);
+
+      setTimeout(() => {
+        setGenerationStep('Calculando dimensionamento normativo ABNT NBR 5410...');
+      }, 1000);
+
+      setTimeout(() => {
+        setGenerationStep('Montando conexões elétricas e lógica Ladder IEC 61131-3...');
+      }, 1500);
+
+      const res = await fetch('/api/ai/deepseek', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: promptText,
+          context: {
+            existingTags,
+            existingComponents,
+            projectVoltage: 380,
+            projectFrequency: 60,
+            groundingSystem: 'TN-S',
+            activeTab,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.specification) {
+        setCurrentAiSpec(data.specification);
+        setGenerationStep('Circuito dimensionado com sucesso! Revise o preview antes de aplicar.');
+      } else {
+        setGenerationStep('Erro ao processar circuito: ' + (data.error || 'Falha na resposta'));
+      }
+    } catch (err: any) {
+      console.error('Erro na chamada da IA DeepSeek:', err);
+      setGenerationStep('Erro de comunicação. O motor de cálculo elétrico permanecerá ativo.');
+    } finally {
+      setIsGeneratingCircuit(false);
+    }
+  }, [components, activeTab]);
+
+  const applyAiCircuitSpecification = useCallback((spec: AiStructuredCircuitSpecification) => {
     pushSnapshot();
-    const lower = command.toLowerCase();
-    if (lower.includes('motor') || lower.includes('partida')) {
-      const newMotorId = `comp_mtr_${Date.now()}`;
-      const newBreakerId = `comp_q_${Date.now()}`;
-      const newContactorId = `comp_km_${Date.now()}`;
-      const newMotor: ElectricalComponent = {
-        id: newMotorId,
-        tag: `MTR03_NOVO`,
-        name: 'Motor Trifásico 15 kW (20 CV) W22',
-        category: 'MOTOR_3P',
-        x: 480,
-        y: 720,
-        width: 140,
-        height: 80,
-        voltage: 380,
-        nominalCurrent: 30.5,
-        operationalCurrent: 29.8,
-        power: 15,
-        powerHp: 20,
-        powerFactor: 0.86,
-        efficiency: 0.92,
+
+    // 1. Calculate non-colliding layout coordinates on active CAD page
+    const pageComps = components.filter(c => !c.pageNumber || c.pageNumber === activePageNumber);
+    const maxX = pageComps.length > 0 ? Math.max(...pageComps.map(c => c.x + (c.width || 140))) : 200;
+    const startX = Math.max(340, maxX + 90);
+    const startY = 160;
+
+    const tagToIdMap = new Map<string, string>();
+    const newComponents: ElectricalComponent[] = [];
+    const newSharedTags: SharedTag[] = [];
+
+    // Place components
+    spec.components.forEach((comp, idx) => {
+      const compId = generateUniqueComponentId(comp.tag.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      tagToIdMap.set(comp.tag, compId);
+
+      const isControlOrButton = comp.role === 'CONTROL' || comp.role === 'EMERGENCY' || comp.role === 'SIGNALLING';
+      const posX = isControlOrButton ? startX + 220 : startX;
+      const posY = isControlOrButton
+        ? startY + (comp.rowIndex ?? idx) * 85
+        : startY + (comp.rowIndex ?? idx) * 110;
+
+      const width = isControlOrButton ? 120 : 140;
+      const height = comp.category === 'MOTOR_3P' ? 80 : 65;
+
+      const ports = [];
+      if (comp.category === 'MOTOR_3P') {
+        ports.push({ id: 'p_in', type: 'in' as const, x: posX + width / 2, y: posY });
+        ports.push({ id: 'p_pe', type: 'in' as const, x: posX, y: posY + height / 2 });
+      } else {
+        ports.push({ id: 'p_in', type: 'in' as const, x: posX + width / 2, y: posY });
+        ports.push({ id: 'p_out', type: 'out' as const, x: posX + width / 2, y: posY + height });
+      }
+
+      const newComp: ElectricalComponent = {
+        id: compId,
+        tag: comp.tag,
+        name: comp.name,
+        category: comp.category,
+        x: posX,
+        y: posY,
+        width,
+        height,
+        voltage: comp.voltage,
+        nominalCurrent: comp.nominalCurrent,
+        operationalCurrent: comp.operationalCurrent,
+        power: comp.powerKw,
+        powerHp: comp.powerHp,
+        powerFactor: comp.powerFactor || 0.86,
+        efficiency: comp.efficiency || 0.92,
+        cableCrossSection: comp.cableCrossSection || spec.engineeringCalculations.recommendedCableMm2,
+        cableLength: comp.cableLength || 25,
+        breakingCapacity: comp.breakingCapacity,
         isEnergized: true,
-        cableCrossSection: 10,
-        cableLength: 25,
-        ports: [{ id: 'p_in', type: 'in', x: 550, y: 720 }],
+        pageNumber: activePageNumber,
+        ports,
       };
-      const newBreaker: ElectricalComponent = {
-        id: newBreakerId,
-        tag: `QM03_NOVO`,
-        name: 'Disjuntor-Motor MPW40 32A',
-        category: 'MOTOR_BREAKER',
-        x: 480,
-        y: 520,
-        width: 140,
-        height: 70,
-        voltage: 380,
-        nominalCurrent: 32,
-        breakingCapacity: 25,
-        isEnergized: true,
-        ports: [
-          { id: 'p_in', type: 'in', x: 550, y: 520 },
-          { id: 'p_out', type: 'out', x: 550, y: 590 },
-        ],
-      };
-      const newContactor: ElectricalComponent = {
-        id: newContactorId,
-        tag: `KM03_NOVO`,
-        name: 'Contator Tripolar CWB38 24VDC',
-        category: 'CONTACTOR',
-        x: 480,
-        y: 620,
-        width: 140,
-        height: 65,
-        voltage: 380,
-        nominalCurrent: 38,
-        isEnergized: true,
-        ports: [
-          { id: 'p_in', type: 'in', x: 550, y: 620 },
-          { id: 'p_out', type: 'out', x: 550, y: 685 },
-        ],
-      };
-      const conn1: ElectricalConnection = {
-        id: `conn_${Date.now()}_1`,
-        fromComponentId: 'comp_barramento',
-        fromPortId: 'p_bar_out_2',
-        toComponentId: newBreakerId,
-        toPortId: 'p_in',
-        isEnergized: true,
-        voltage: 380,
-        wireGauge: 10,
-      };
-      const conn2: ElectricalConnection = {
-        id: `conn_${Date.now()}_2`,
-        fromComponentId: newBreakerId,
-        fromPortId: 'p_out',
-        toComponentId: newContactorId,
-        toPortId: 'p_in',
-        isEnergized: true,
-        voltage: 380,
-        wireGauge: 10,
-      };
-      const conn3: ElectricalConnection = {
-        id: `conn_${Date.now()}_3`,
-        fromComponentId: newContactorId,
-        fromPortId: 'p_out',
-        toComponentId: newMotorId,
-        toPortId: 'p_in',
-        isEnergized: true,
-        voltage: 380,
-        wireGauge: 10,
-      };
-      setComponents(prev => [...prev, newBreaker, newContactor, newMotor]);
-      setConnections(prev => [...prev, conn1, conn2, conn3]);
-      setSelectedComponentId(newMotorId);
-      setSelectedComponentIds([newMotorId]);
-      return 'Circuito de acionamento para motor 15 kW (Disjuntor-motor 32A + Contator CWB38 + Motor W22 + Cabos 10mm²) gerado com sucesso conforme NBR 5410!';
+      newComponents.push(newComp);
+
+      // Create synchronized SharedTag for SCADA and Digital Twin
+      newSharedTags.push({
+        id: `tag_${comp.tag.toLowerCase()}`,
+        name: comp.tag,
+        description: comp.name,
+        dataType: comp.category === 'MOTOR_3P' || comp.category === 'CONTACTOR' ? 'BOOLEAN' : 'NUMBER',
+        direction: 'INTERNAL',
+        currentValue: comp.category === 'MOTOR_BREAKER' ? true : false,
+        unit: comp.category === 'MOTOR_3P' ? 'RPM' : undefined,
+        sourceModule: 'UNIFILAR',
+        lastUpdated: new Date().toISOString(),
+        quality: 'GOOD',
+      });
+    });
+
+    // 2. Map connections
+    const newConnections: ElectricalConnection[] = [];
+    spec.connections.forEach(conn => {
+      const fromId = tagToIdMap.get(conn.fromTag) || (conn.fromTag.includes('BARRAMENTO') ? 'comp_barramento' : undefined);
+      const toId = tagToIdMap.get(conn.toTag);
+      if (fromId && toId) {
+        newConnections.push({
+          id: generateUniqueConnectionId(),
+          fromComponentId: fromId,
+          fromPortId: conn.fromPort === 'p_in' ? 'p_in' : 'p_out',
+          toComponentId: toId,
+          toPortId: conn.toPort === 'p_in' ? 'p_in' : 'p_out',
+          isEnergized: true,
+          voltage: 380,
+          wireGauge: conn.wireGaugeMm2 || spec.engineeringCalculations.recommendedCableMm2,
+        });
+      }
+    });
+
+    // 3. Mutate project
+    setComponents(prev => [...prev, ...newComponents]);
+    if (newConnections.length > 0) {
+      setConnections(prev => [...prev, ...newConnections]);
     }
-    if (lower.includes('cabo') || lower.includes('dimensionar')) {
-      setComponents(prev =>
-        prev.map(c => {
-          if (c.voltageDropPercent && c.voltageDropPercent > 2.0) {
-            return {
-              ...c,
-              cableCrossSection: ((c.cableCrossSection || 16) * 1.5 > 25 ? 35 : 25),
-              voltageDropPercent: 0.85,
-            };
-          }
-          return c;
-        })
-      );
-      return 'Condutores redimensionados para atender o critério de queda de tensão máxima < 2.0% conforme NBR 5410!';
+    setSharedTags(prev => [...prev, ...newSharedTags]);
+
+    if (newComponents.length > 0) {
+      setSelectedComponentId(newComponents[0].id);
+      setSelectedComponentIds(newComponents.map(c => c.id));
     }
-    return `Comando "${command}" processado e aplicado ao modelo elétrico.`;
-  }, [pushSnapshot]);
+
+    console.log(`[AUDIT] Circuito "${spec.title}" (${spec.components.length} componentes) gerado por IA adicionado com sucesso ao projeto.`);
+  }, [components, activePageNumber, pushSnapshot]);
+
+  const executeAiNaturalCommand = useCallback(async (command: string): Promise<string> => {
+    await requestAiCircuitSynthesis(command);
+    return `EletricAI interpretou "${command}". Abrindo preview do circuito para auditoria de engenharia...`;
+  }, [requestAiCircuitSynthesis]);
 
   // LADDER CONTACT TOGGLE
   const toggleLadderContact = useCallback((rungId: string, elementId: string) => {
@@ -1119,6 +1198,14 @@ END_IF;
       setActivePatch,
       applyPatch,
       rejectPatch,
+      aiGenerationModalOpen,
+      setAiGenerationModalOpen,
+      currentAiSpec,
+      setCurrentAiSpec,
+      isGeneratingCircuit,
+      generationStep,
+      requestAiCircuitSynthesis,
+      applyAiCircuitSpecification,
       isSimulationRunning,
       setIsSimulationRunning,
       // CAD & Engineering Engine
@@ -1229,6 +1316,12 @@ END_IF;
       activePatch,
       applyPatch,
       rejectPatch,
+      aiGenerationModalOpen,
+      currentAiSpec,
+      isGeneratingCircuit,
+      generationStep,
+      requestAiCircuitSynthesis,
+      applyAiCircuitSpecification,
       isSimulationRunning,
       downloadDxf,
       downloadPlcopenXml,

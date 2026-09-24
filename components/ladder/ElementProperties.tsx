@@ -33,6 +33,7 @@ interface ElementPropertiesProps {
   onDuplicateElement: () => void;
   isSimulationActive: boolean;
   onToggleForce: (varName: string, val: boolean | number) => void;
+  onClose?: () => void;
 }
 
 export function ElementProperties({
@@ -43,10 +44,11 @@ export function ElementProperties({
   onDuplicateElement,
   isSimulationActive,
   onToggleForce,
+  onClose,
 }: ElementPropertiesProps) {
   if (!element) {
     return (
-      <div className="w-72 bg-[#11141A] border-l border-[#232833] flex flex-col h-full text-xs font-mono select-none p-4 text-slate-500 justify-center items-center text-center">
+      <div className="hidden lg:flex w-72 bg-[#11141A] border-l border-[#232833] flex-col h-full text-xs font-mono select-none p-4 text-slate-500 justify-center items-center text-center">
         <Sliders className="h-8 w-8 mb-2 opacity-30 text-slate-400" />
         <span className="font-bold text-slate-400">Nenhum elemento selecionado</span>
         <span className="text-[11px] mt-1 text-slate-600">
@@ -59,7 +61,7 @@ export function ElementProperties({
   const boundVariable = variables.find(v => v.name === element.variableName);
 
   return (
-    <div className="w-80 bg-[#11141A] border-l border-[#232833] flex flex-col h-full text-xs font-mono select-none overflow-y-auto">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-80 md:relative md:w-80 bg-[#11141A] border-l border-[#232833] flex flex-col h-full text-xs font-mono select-none z-30 shadow-2xl overflow-y-auto">
       {/* Header */}
       <div className="p-3 border-b border-[#232833] bg-[#161A22] flex items-center justify-between">
         <span className="font-bold text-slate-100 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
@@ -81,6 +83,15 @@ export function ElementProperties({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 hover:text-white text-slate-400 rounded hover:bg-[#232833] ml-1"
+              title="Fechar painel"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -19,9 +19,9 @@ export function MultifilarViewer() {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden">
       {/* Top Banner / Generator Status */}
-      <div className="h-12 px-6 bg-[#11141A] border-b border-[#232833] flex items-center justify-between">
+      <div className="min-h-12 px-4 sm:px-6 py-2 bg-[#11141A] border-b border-[#232833] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 overflow-x-auto">
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <div className="h-7 w-7 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
             <Split className="h-4 w-4" />
           </div>
           <div>
@@ -40,10 +40,10 @@ export function MultifilarViewer() {
         </div>
 
         {/* Circuit Selector Buttons */}
-        <div className="flex items-center gap-1 bg-[#161A22] border border-[#232833] p-1 rounded">
+        <div className="flex items-center gap-1 bg-[#161A22] border border-[#232833] p-1 rounded overflow-x-auto max-w-full">
           <button
             onClick={() => setSelectedCircuit('cct_comp')}
-            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
               selectedCircuit === 'cct_comp'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
@@ -53,7 +53,7 @@ export function MultifilarViewer() {
           </button>
           <button
             onClick={() => setSelectedCircuit('cct_exh')}
-            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
               selectedCircuit === 'cct_exh'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
@@ -63,7 +63,7 @@ export function MultifilarViewer() {
           </button>
           <button
             onClick={() => setSelectedCircuit('cct_cmd')}
-            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
               selectedCircuit === 'cct_cmd'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
@@ -75,9 +75,9 @@ export function MultifilarViewer() {
       </div>
 
       {/* Main Multifilar Visual Canvas */}
-      <div className="flex-1 flex overflow-hidden p-6 gap-6">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden p-3 sm:p-6 gap-4 sm:gap-6">
         {/* Schematic SVG Renderer */}
-        <div className="flex-1 bg-[#11141A] border border-[#232833] rounded-lg p-6 flex flex-col relative overflow-auto shadow-inner bg-cad-grid">
+        <div className="flex-1 min-h-[460px] bg-[#11141A] border border-[#232833] rounded-lg p-3 sm:p-6 flex flex-col relative overflow-auto shadow-inner bg-cad-grid">
           <div className="flex items-center justify-between pb-4 border-b border-[#232833]">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-amber-400">
@@ -239,7 +239,7 @@ export function MultifilarViewer() {
         </div>
 
         {/* Sidebar Normative Specification */}
-        <div className="w-80 bg-[#11141A] border border-[#232833] rounded-lg p-4 flex flex-col gap-4 text-xs font-mono select-none">
+        <div className="w-full lg:w-80 bg-[#11141A] border border-[#232833] rounded-lg p-4 flex flex-col gap-4 text-xs font-mono select-none">
           <div className="flex items-center gap-2 pb-3 border-b border-[#232833]">
             <Shield className="h-4 w-4 text-emerald-400" />
             <span className="font-bold text-slate-100">IDENTIFICAÇÃO DE CONDUTORES</span>

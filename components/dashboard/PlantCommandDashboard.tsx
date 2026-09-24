@@ -30,6 +30,7 @@ import { TeamSection } from './TeamSection';
 import { ManageTeamModal } from './ManageTeamModal';
 import { NewProjectModal } from './NewProjectModal';
 import { HelpModal } from './HelpModal';
+import { LayoutDashboard, FolderGit2, AlertTriangle, Activity, Users } from 'lucide-react';
 
 export function PlantCommandDashboard() {
   const { setActiveTab } = useWorkspace();
@@ -246,6 +247,58 @@ export function PlantCommandDashboard() {
             </div>
           )}
         </main>
+
+        {/* Mobile View Navigation Bar */}
+        <div className="md:hidden border-t border-[#232833] bg-[#0D1017] px-2 py-1.5 flex items-center justify-around z-20 shrink-0 select-none">
+          <button
+            onClick={() => setCurrentView('overview')}
+            className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] font-mono transition-colors ${
+              currentView === 'overview' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span>Hub</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('projects')}
+            className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] font-mono transition-colors ${
+              currentView === 'projects' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FolderGit2 className="h-4 w-4" />
+            <span>Projetos</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('alerts')}
+            className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] font-mono relative transition-colors ${
+              currentView === 'alerts' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            <span>Alertas</span>
+            {criticalAlertCount > 0 && (
+              <span className="absolute top-0 right-1 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+            )}
+          </button>
+          <button
+            onClick={() => setCurrentView('monitoring')}
+            className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] font-mono transition-colors ${
+              currentView === 'monitoring' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Activity className="h-4 w-4" />
+            <span>Telemetria</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('team')}
+            className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] font-mono transition-colors ${
+              currentView === 'team' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            <span>Equipe</span>
+          </button>
+        </div>
       </div>
 
       {/* Modals */}

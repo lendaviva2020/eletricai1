@@ -540,3 +540,112 @@ export interface AiPatchProposal {
   costImpactBrl: number;
   status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 }
+
+// ==========================================
+// STRUCTURED CIRCUIT SPECIFICATION (DEEPSEEK + ELETRICAI ENGINE)
+// ==========================================
+export type CircuitType =
+  | 'direct_starter'
+  | 'star_delta'
+  | 'soft_starter'
+  | 'vfd_inverter'
+  | 'reversing'
+  | 'pump_alternation'
+  | 'emergency_loop'
+  | 'feeder_protection'
+  | 'custom';
+
+export interface AiCircuitSpecComponent {
+  tag: string;
+  name: string;
+  category: ComponentCategory;
+  role: 'POWER' | 'CONTROL' | 'PROTECTION' | 'SIGNALLING' | 'EMERGENCY' | 'LOAD';
+  voltage: number;
+  nominalCurrent: number;
+  operationalCurrent: number;
+  powerKw?: number;
+  powerHp?: number;
+  powerFactor?: number;
+  efficiency?: number;
+  cableCrossSection?: number;
+  cableLength?: number;
+  breakingCapacity?: number;
+  tripCurve?: 'B' | 'C' | 'D';
+  settingRange?: string; // e.g. "23 - 32 A"
+  manufacturer?: string;
+  partNumber?: string;
+  // Visual placement hints (relative in circuit unit)
+  colIndex?: number;
+  rowIndex?: number;
+}
+
+export interface AiCircuitSpecConnection {
+  fromTag: string;
+  fromPort: 'p_in' | 'p_out' | 'p_pe' | 'p_cmd1' | 'p_cmd2' | string;
+  toTag: string;
+  toPort: 'p_in' | 'p_out' | 'p_pe' | 'p_cmd1' | 'p_cmd2' | string;
+  circuitRole: 'POWER_3P' | 'POWER_1P' | 'CONTROL_24V' | 'CONTROL_220V' | 'PE_GROUND' | 'NEUTRAL';
+  wireGaugeMm2: number;
+  wireColor: string;
+  description: string;
+}
+
+export interface AiCircuitSpecVariable {
+  name: string;
+  address: string;
+  dataType: 'BOOL' | 'INT' | 'REAL' | 'TIME';
+  direction: 'INPUT' | 'OUTPUT' | 'MEMORY';
+  comment: string;
+  initialValue?: boolean | number;
+}
+
+export interface AiCircuitSpecLadderRung {
+  title: string;
+  comment: string;
+  elements: Array<{
+    type: 'NO_CONTACT' | 'NC_CONTACT' | 'COIL' | 'TON_TIMER' | 'SET_COIL' | 'RESET_COIL';
+    variable: string;
+    label?: string;
+    comment?: string;
+    presetTimeMs?: number;
+  }>;
+}
+
+export interface AiCircuitEngineeringValidation {
+  nominalCurrentA: number;
+  designCurrentIb: number;
+  recommendedBreakerA: number;
+  recommendedContactorA: number;
+  thermalRelaySettingMinA: number;
+  thermalRelaySettingMaxA: number;
+  recommendedCableMm2: number;
+  calculatedVoltageDropPercent: number;
+  maxAllowedVoltageDropPercent: number;
+  startingCurrentRatio: number;
+  coordinationType: 'TIPO 1' | 'TIPO 2';
+  apparentPowerKva: number;
+  reactivePowerKvar: number;
+  nbrCompliant: boolean;
+  standardReferences: string[];
+  premises: string[];
+  warnings: string[];
+}
+
+export interface AiStructuredCircuitSpecification {
+  id: string;
+  action: 'create_circuit' | 'modify_circuit' | 'analyze_circuit';
+  circuitType: CircuitType;
+  title: string;
+  summary: string;
+  technicalRationale: string;
+  requestedPrompt: string;
+  createdAt: string;
+  provider: 'deepseek-v3' | 'deepseek-r1' | 'eletricai-engine-fallback';
+  modelUsed: string;
+  components: AiCircuitSpecComponent[];
+  connections: AiCircuitSpecConnection[];
+  variables: AiCircuitSpecVariable[];
+  ladderRungs: AiCircuitSpecLadderRung[];
+  engineeringCalculations: AiCircuitEngineeringValidation;
+  status: 'PENDING_PREVIEW' | 'APPLIED' | 'CANCELLED';
+}

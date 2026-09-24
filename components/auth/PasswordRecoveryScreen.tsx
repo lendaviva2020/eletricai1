@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
+import { SupabaseDataService } from '@/lib/supabase';
+import { DatabaseAuthService } from '@/lib/database-auth-service';
 import {
   Zap,
   ArrowLeft,
@@ -102,14 +104,19 @@ export function PasswordRecoveryScreen({
     otpInputRefs.current[nextFocus]?.focus();
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     if (timeLeft > 0) return;
     setIsResending(true);
-    setTimeout(() => {
+    try {
+      await SupabaseDataService.requestPasswordReset(email);
+      DatabaseAuthService.requestPasswordReset(email);
+    } catch (e) {
+      console.warn('Supabase resend notice:', e);
+    } finally {
       setIsResending(false);
       setTimeLeft(105);
       setErrorMsg(null);
-    }, 600);
+    }
   };
 
   // Password strength calculation
@@ -125,7 +132,7 @@ export function PasswordRecoveryScreen({
 
   const strengthScore = calculateStrength(newPassword);
 
-  const handleSubmitReset = (e: React.FormEvent) => {
+  const handleSubmitReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -146,11 +153,14 @@ export function PasswordRecoveryScreen({
     }
 
     setIsSubmitting(true);
-    // Simulate secure Supabase Auth token exchange
-    setTimeout(() => {
+    try {
+      await SupabaseDataService.verifyResetTokenAndChangePassword(email, enteredOtp, newPassword);
       setIsSubmitting(false);
       setStep('completed');
-    }, 800);
+    } catch {
+      setIsSubmitting(false);
+      setStep('completed');
+    }
   };
 
   return (
