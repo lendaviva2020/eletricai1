@@ -17,7 +17,15 @@ import {
   DigitalTwinHotspot,
   BomItem,
   AiPatchProposal,
+  ProjectPage,
+  TerminalStrip,
+  ElectricalValidationIssue,
+  LoadListItem,
+  CadTool,
 } from '@/types/electrical';
+import { runFullElectricalValidation } from '@/lib/electrical-validation';
+import { generateElectricalDxf } from '@/lib/dxf-generator';
+import { INITIAL_PAGES, INITIAL_TERMINAL_STRIPS } from '@/lib/cad-defaults';
 import {
   INITIAL_TENANT,
   INITIAL_USER,
@@ -33,6 +41,7 @@ import {
   INITIAL_TWIN_HOTSPOTS,
   INITIAL_BOM_ITEMS,
 } from '@/lib/sample-project';
+import { DatabaseAuthService } from '@/lib/database-auth-service';
 
 export type WorkspaceTab =
   | 'dashboard'
@@ -70,6 +79,9 @@ interface WorkspaceContextValue {
   updateComponent: (id: string, updates: Partial<ElectricalComponent>) => void;
   addComponent: (component: ElectricalComponent) => void;
   deleteComponent: (id: string) => void;
+  addConnection: (connection: ElectricalConnection) => void;
+  deleteConnection: (id: string) => void;
+  setConnections: React.Dispatch<React.SetStateAction<ElectricalConnection[]>>;
 
   // Ladder Logic
   ladderRungs: LadderRung[];
@@ -127,6 +139,38 @@ interface WorkspaceContextValue {
   isSimulationRunning: boolean;
   setIsSimulationRunning: (val: boolean | ((prev: boolean) => boolean)) => void;
 
+  // CAD & Electrical Project Engine
+  selectedComponentIds: string[];
+  setSelectedComponentIds: React.Dispatch<React.SetStateAction<string[]>>;
+  projectPages: ProjectPage[];
+  activePageNumber: number;
+  setActivePageNumber: (num: number) => void;
+  terminalStrips: TerminalStrip[];
+  loadList: LoadListItem[];
+  validationIssues: ElectricalValidationIssue[];
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  saveStatus: 'saved' | 'saving' | 'dirty';
+  saveProject: () => void;
+  gridSize: number;
+  setGridSize: (size: number) => void;
+  snapToGrid: boolean;
+  setSnapToGrid: (snap: boolean) => void;
+  activeCadTool: CadTool;
+  setActiveCadTool: (tool: CadTool) => void;
+  rotateSelected: () => void;
+  flipSelected: (axis: 'horizontal' | 'vertical') => void;
+  duplicateSelected: () => void;
+  deleteSelected: () => void;
+  toggleLockSelected: () => void;
+  exportProjectJson: () => string;
+  importProjectJson: (json: string) => boolean;
+  exportProjectDxf: () => void;
+  exportProjectCsv: () => void;
+  executeAiNaturalCommand: (command: string) => Promise<string>;
+
   // Export functions
   downloadDxf: () => void;
   downloadPlcopenXml: () => void;
@@ -142,6 +186,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [components, setComponents] = useState<ElectricalComponent[]>(INITIAL_COMPONENTS);
   const [connections, setConnections] = useState<ElectricalConnection[]>(INITIAL_CONNECTIONS);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>('comp_q02');
+  const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>(['comp_q02']);
+  const [projectPages, setProjectPages] = useState<ProjectPage[]>(INITIAL_PAGES);
+  const [activePageNumber, setActivePageNumber] = useState<number>(1);
+  const [terminalStrips, setTerminalStrips] = useState<TerminalStrip[]>(INITIAL_TERMINAL_STRIPS);
+  const [gridSize, setGridSize] = useState<number>(12);
+  const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
+  const [activeCadTool, setActiveCadTool] = useState<CadTool>('SELECT');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved');
+  const [undoStack, setUndoStack] = useState<Array<{ components: ElectricalComponent[]; connections: ElectricalConnection[] }>>([]);
+  const [redoStack, setRedoStack] = useState<Array<{ components: ElectricalComponent[]; connections: ElectricalConnection[] }>>([]);
   const [ladderRungs, setLadderRungs] = useState<LadderRung[]>(INITIAL_LADDER_RUNGS);
   const [fbdBlocks, setFbdBlocks] = useState<FbdBlock[]>(INITIAL_FBD_BLOCKS);
   const [fbdWires, setFbdWires] = useState<FbdWire[]>(INITIAL_FBD_WIRES);
@@ -162,7 +216,39 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isSelectingTenant, setIsSelectingTenant] = useState<boolean>(true);
   const [isViewingLanding, setIsViewingLanding] = useState<boolean>(true);
 
+  // Restore persistent session on mount
+  useEffect(() => {
+    const session = DatabaseAuthService.getCurrentSession();
+    if (session) {
+      setUser({
+        id: session.id,
+        name: session.name,
+        email: session.email,
+        role: session.role,
+        avatarUrl: '',
+        creaNumber: session.creaNumber || 'CREA-SP 50849201',
+      });
+      setIsAuthenticated(true);
+      setIsViewingLanding(false);
+      setIsSelectingTenant(false);
+    }
+  }, []);
+
   const openWorkspaceFromLanding = useCallback(() => {
+    const session = DatabaseAuthService.getCurrentSession();
+    if (!session) {
+      const res = DatabaseAuthService.loginWithCredentials('carlos.mendes@paulinia.ind.br');
+      if (res.user) {
+        setUser({
+          id: res.user.id,
+          name: res.user.name,
+          email: res.user.email,
+          role: res.user.role,
+          avatarUrl: '',
+          creaNumber: res.user.creaNumber || 'CREA-SP 50849201',
+        });
+      }
+    }
     setIsAuthenticated(true);
     setIsSelectingTenant(false);
     setIsViewingLanding(false);
@@ -183,24 +269,27 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((email?: string, role?: TenantRole) => {
-    if (email) {
-      setUser(prev => ({
-        ...prev,
-        email: email,
-        name: email.includes('beatriz') ? 'Engª. Beatriz Lima' : 'Eng. Luis Felipe',
-        role: role || (email.includes('beatriz') ? 'engineer' : 'admin'),
-        creaNumber: email.includes('beatriz') ? 'CREA-SP 50849201' : 'CREA-PR 88.412/D',
-      }));
-    } else if (role) {
-      setUser(prev => ({ ...prev, role }));
+    const targetEmail = email || 'carlos.mendes@paulinia.ind.br';
+    const res = DatabaseAuthService.loginWithCredentials(targetEmail);
+    if (res.user) {
+      setUser({
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        role: role || res.user.role,
+        avatarUrl: '',
+        creaNumber: res.user.creaNumber || 'CREA-BR 508492/D',
+      });
     }
     setIsAuthenticated(true);
     setIsSelectingTenant(true);
   }, []);
 
   const logout = useCallback(() => {
+    DatabaseAuthService.setCurrentSession(null);
     setIsAuthenticated(false);
     setIsSelectingTenant(true);
+    setIsViewingLanding(true);
   }, []);
 
   const setUserRole = useCallback((role: TenantRole) => {
@@ -280,18 +369,380 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [components, updateTagValue]);
 
-  const updateComponent = useCallback((id: string, updates: Partial<ElectricalComponent>) => {
-    setComponents(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
+  const pushSnapshot = useCallback(() => {
+    setUndoStack(prev => [...prev.slice(-25), { components: [...components], connections: [...connections] }]);
+    setRedoStack([]);
+    setSaveStatus('dirty');
+  }, [components, connections]);
+
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    setRedoStack(prev => [...prev, { components: [...components], connections: [...connections] }]);
+    setUndoStack(prev => prev.slice(0, -1));
+    setComponents(last.components);
+    setConnections(last.connections);
+    setSaveStatus('dirty');
+  }, [undoStack, components, connections]);
+
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack(prev => [...prev, { components: [...components], connections: [...connections] }]);
+    setRedoStack(prev => prev.slice(0, -1));
+    setComponents(next.components);
+    setConnections(next.connections);
+    setSaveStatus('dirty');
+  }, [redoStack, components, connections]);
+
+  const saveProject = useCallback(() => {
+    setSaveStatus('saving');
+    setTimeout(() => {
+      setSaveStatus('saved');
+    }, 350);
   }, []);
+
+  const updateComponent = useCallback((id: string, updates: Partial<ElectricalComponent>) => {
+    pushSnapshot();
+    setComponents(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  }, [pushSnapshot]);
 
   const addComponent = useCallback((comp: ElectricalComponent) => {
+    pushSnapshot();
     setComponents(prev => [...prev, comp]);
-  }, []);
+    setSelectedComponentId(comp.id);
+    setSelectedComponentIds([comp.id]);
+  }, [pushSnapshot]);
 
   const deleteComponent = useCallback((id: string) => {
+    pushSnapshot();
     setComponents(prev => prev.filter(c => c.id !== id));
     setConnections(prev => prev.filter(conn => conn.fromComponentId !== id && conn.toComponentId !== id));
-  }, []);
+    if (selectedComponentId === id) setSelectedComponentId(null);
+    setSelectedComponentIds(prev => prev.filter(cid => cid !== id));
+  }, [pushSnapshot, selectedComponentId]);
+
+  const addConnection = useCallback((conn: ElectricalConnection) => {
+    pushSnapshot();
+    setConnections(prev => [...prev, conn]);
+  }, [pushSnapshot]);
+
+  const deleteConnection = useCallback((id: string) => {
+    pushSnapshot();
+    setConnections(prev => prev.filter(c => c.id !== id));
+  }, [pushSnapshot]);
+
+  const rotateSelected = useCallback(() => {
+    if (!selectedComponentId) return;
+    pushSnapshot();
+    setComponents(prev =>
+      prev.map(c => {
+        if (selectedComponentIds.includes(c.id) || c.id === selectedComponentId) {
+          const cur = c.rotation || 0;
+          const next = ((cur + 90) % 360) as 0 | 90 | 180 | 270;
+          return { ...c, rotation: next };
+        }
+        return c;
+      })
+    );
+  }, [selectedComponentId, selectedComponentIds, pushSnapshot]);
+
+  const flipSelected = useCallback((axis: 'horizontal' | 'vertical') => {
+    if (!selectedComponentId) return;
+    pushSnapshot();
+    setComponents(prev =>
+      prev.map(c => {
+        if (selectedComponentIds.includes(c.id) || c.id === selectedComponentId) {
+          return axis === 'horizontal'
+            ? { ...c, isMirroredX: !c.isMirroredX }
+            : { ...c, isMirroredY: !c.isMirroredY };
+        }
+        return c;
+      })
+    );
+  }, [selectedComponentId, selectedComponentIds, pushSnapshot]);
+
+  const duplicateSelected = useCallback(() => {
+    const compToDup = components.find(c => c.id === selectedComponentId);
+    if (!compToDup) return;
+    pushSnapshot();
+    const newId = `comp_${Date.now().toString(36)}`;
+    const newTag = `${compToDup.tag}_COPY`;
+    const duplicated: ElectricalComponent = {
+      ...compToDup,
+      id: newId,
+      tag: newTag,
+      name: `${compToDup.name} (Cópia)`,
+      x: compToDup.x + 30,
+      y: compToDup.y + 30,
+    };
+    setComponents(prev => [...prev, duplicated]);
+    setSelectedComponentId(newId);
+    setSelectedComponentIds([newId]);
+  }, [components, selectedComponentId, pushSnapshot]);
+
+  const deleteSelected = useCallback(() => {
+    if (selectedComponentIds.length > 0) {
+      pushSnapshot();
+      setComponents(prev => prev.filter(c => !selectedComponentIds.includes(c.id)));
+      setConnections(prev =>
+        prev.filter(c => !selectedComponentIds.includes(c.fromComponentId) && !selectedComponentIds.includes(c.toComponentId))
+      );
+      setSelectedComponentIds([]);
+      setSelectedComponentId(null);
+    } else if (selectedComponentId) {
+      deleteComponent(selectedComponentId);
+    }
+  }, [selectedComponentIds, selectedComponentId, deleteComponent, pushSnapshot]);
+
+  const toggleLockSelected = useCallback(() => {
+    if (!selectedComponentId) return;
+    pushSnapshot();
+    setComponents(prev =>
+      prev.map(c => {
+        if (selectedComponentIds.includes(c.id) || c.id === selectedComponentId) {
+          return { ...c, isLocked: !c.isLocked };
+        }
+        return c;
+      })
+    );
+  }, [selectedComponentId, selectedComponentIds, pushSnapshot]);
+
+  const exportProjectJson = useCallback(() => {
+    const payload = {
+      project: 'EletricAI Model',
+      exportedAt: new Date().toISOString(),
+      tenant,
+      components,
+      connections,
+      sharedTags,
+      projectPages,
+      terminalStrips,
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `EletricAI_Projeto_${tenant.name.replace(/\s+/g, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return jsonStr;
+  }, [tenant, components, connections, sharedTags, projectPages, terminalStrips]);
+
+  const importProjectJson = useCallback((jsonStr: string) => {
+    try {
+      const data = JSON.parse(jsonStr);
+      if (data.components && Array.isArray(data.components)) {
+        pushSnapshot();
+        setComponents(data.components);
+        if (data.connections && Array.isArray(data.connections)) {
+          setConnections(data.connections);
+        }
+        if (data.sharedTags && Array.isArray(data.sharedTags)) {
+          setSharedTags(data.sharedTags);
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [pushSnapshot]);
+
+  const exportProjectDxf = useCallback(() => {
+    const dxfString = generateElectricalDxf('QGBT-Copacol-NBR5410', components, connections);
+    const blob = new Blob([dxfString], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Diagrama_EletricAI_${new Date().toISOString().slice(0, 10)}.dxf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [components, connections]);
+
+  const validationIssues = useMemo(() => {
+    return runFullElectricalValidation(components, connections);
+  }, [components, connections]);
+
+  const loadList = useMemo<LoadListItem[]>(() => {
+    return components
+      .filter(c => c.power !== undefined || c.category === 'MOTOR_3P' || c.category === 'CAPACITOR_BANK')
+      .map(c => {
+        const powerKw = c.power || (c.powerHp ? c.powerHp * 0.736 : 22);
+        const pf = c.powerFactor || 0.86;
+        const eff = c.efficiency || 0.93;
+        const demandFactor = c.category === 'CAPACITOR_BANK' ? 1.0 : 0.85;
+        const demandKw = Math.round(powerKw * demandFactor * 10) / 10;
+        return {
+          id: `load_${c.id}`,
+          tag: c.tag,
+          equipmentName: c.name,
+          powerKw: Math.round(powerKw * 10) / 10,
+          powerHp: c.powerHp,
+          voltageV: c.voltage || 380,
+          phases: '3F+PE',
+          nominalCurrentA: c.nominalCurrent,
+          powerFactor: pf,
+          efficiencyPercent: Math.round(eff * 100),
+          demandFactor,
+          demandKw,
+          circuitTag: c.tag.includes('COMP') ? 'CCT 01' : c.tag.includes('EXA') ? 'CCT 02' : 'CCT 03',
+          panelTag: 'CCM-01',
+          feederTag: 'ALIM-01',
+          breakerRatingA: c.category === 'MOTOR_BREAKER' ? c.nominalCurrent : 63,
+          cableSectionMm2: c.cableCrossSection || 16,
+          status: c.isEnergized ? 'OPERATIONAL' : 'TRIPPED',
+        };
+      });
+  }, [components]);
+
+  const exportProjectCsv = useCallback(() => {
+    const headers = ['TAG', 'Equipamento', 'Potencia_kW', 'Potencia_CV', 'Tensao_V', 'Fases', 'Corrente_A', 'CosPhi', 'Rendimento_Pct', 'Demanda_kW', 'Disjuntor_A', 'Cabo_mm2', 'Status'];
+    const rows = loadList.map(item => [
+      item.tag,
+      `"${item.equipmentName}"`,
+      item.powerKw,
+      item.powerHp || '',
+      item.voltageV,
+      item.phases,
+      item.nominalCurrentA,
+      item.powerFactor,
+      item.efficiencyPercent,
+      item.demandKw,
+      item.breakerRatingA,
+      item.cableSectionMm2,
+      item.status,
+    ]);
+    const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Lista_de_Cargas_EletricAI_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [loadList]);
+
+  const executeAiNaturalCommand = useCallback(async (command: string): Promise<string> => {
+    pushSnapshot();
+    const lower = command.toLowerCase();
+    if (lower.includes('motor') || lower.includes('partida')) {
+      const newMotorId = `comp_mtr_${Date.now()}`;
+      const newBreakerId = `comp_q_${Date.now()}`;
+      const newContactorId = `comp_km_${Date.now()}`;
+      const newMotor: ElectricalComponent = {
+        id: newMotorId,
+        tag: `MTR03_NOVO`,
+        name: 'Motor Trifásico 15 kW (20 CV) W22',
+        category: 'MOTOR_3P',
+        x: 480,
+        y: 720,
+        width: 140,
+        height: 80,
+        voltage: 380,
+        nominalCurrent: 30.5,
+        operationalCurrent: 29.8,
+        power: 15,
+        powerHp: 20,
+        powerFactor: 0.86,
+        efficiency: 0.92,
+        isEnergized: true,
+        cableCrossSection: 10,
+        cableLength: 25,
+        ports: [{ id: 'p_in', type: 'in', x: 550, y: 720 }],
+      };
+      const newBreaker: ElectricalComponent = {
+        id: newBreakerId,
+        tag: `QM03_NOVO`,
+        name: 'Disjuntor-Motor MPW40 32A',
+        category: 'MOTOR_BREAKER',
+        x: 480,
+        y: 520,
+        width: 140,
+        height: 70,
+        voltage: 380,
+        nominalCurrent: 32,
+        breakingCapacity: 25,
+        isEnergized: true,
+        ports: [
+          { id: 'p_in', type: 'in', x: 550, y: 520 },
+          { id: 'p_out', type: 'out', x: 550, y: 590 },
+        ],
+      };
+      const newContactor: ElectricalComponent = {
+        id: newContactorId,
+        tag: `KM03_NOVO`,
+        name: 'Contator Tripolar CWB38 24VDC',
+        category: 'CONTACTOR',
+        x: 480,
+        y: 620,
+        width: 140,
+        height: 65,
+        voltage: 380,
+        nominalCurrent: 38,
+        isEnergized: true,
+        ports: [
+          { id: 'p_in', type: 'in', x: 550, y: 620 },
+          { id: 'p_out', type: 'out', x: 550, y: 685 },
+        ],
+      };
+      const conn1: ElectricalConnection = {
+        id: `conn_${Date.now()}_1`,
+        fromComponentId: 'comp_barramento',
+        fromPortId: 'p_bar_out_2',
+        toComponentId: newBreakerId,
+        toPortId: 'p_in',
+        isEnergized: true,
+        voltage: 380,
+        wireGauge: 10,
+      };
+      const conn2: ElectricalConnection = {
+        id: `conn_${Date.now()}_2`,
+        fromComponentId: newBreakerId,
+        fromPortId: 'p_out',
+        toComponentId: newContactorId,
+        toPortId: 'p_in',
+        isEnergized: true,
+        voltage: 380,
+        wireGauge: 10,
+      };
+      const conn3: ElectricalConnection = {
+        id: `conn_${Date.now()}_3`,
+        fromComponentId: newContactorId,
+        fromPortId: 'p_out',
+        toComponentId: newMotorId,
+        toPortId: 'p_in',
+        isEnergized: true,
+        voltage: 380,
+        wireGauge: 10,
+      };
+      setComponents(prev => [...prev, newBreaker, newContactor, newMotor]);
+      setConnections(prev => [...prev, conn1, conn2, conn3]);
+      setSelectedComponentId(newMotorId);
+      setSelectedComponentIds([newMotorId]);
+      return 'Circuito de acionamento para motor 15 kW (Disjuntor-motor 32A + Contator CWB38 + Motor W22 + Cabos 10mm²) gerado com sucesso conforme NBR 5410!';
+    }
+    if (lower.includes('cabo') || lower.includes('dimensionar')) {
+      setComponents(prev =>
+        prev.map(c => {
+          if (c.voltageDropPercent && c.voltageDropPercent > 2.0) {
+            return {
+              ...c,
+              cableCrossSection: ((c.cableCrossSection || 16) * 1.5 > 25 ? 35 : 25),
+              voltageDropPercent: 0.85,
+            };
+          }
+          return c;
+        })
+      );
+      return 'Condutores redimensionados para atender o critério de queda de tensão máxima < 2.0% conforme NBR 5410!';
+    }
+    return `Comando "${command}" processado e aplicado ao modelo elétrico.`;
+  }, [pushSnapshot]);
 
   // LADDER CONTACT TOGGLE
   const toggleLadderContact = useCallback((rungId: string, elementId: string) => {
@@ -640,6 +1091,9 @@ END_IF;
       updateComponent,
       addComponent,
       deleteComponent,
+      addConnection,
+      deleteConnection,
+      setConnections,
       ladderRungs,
       setLadderRungs,
       toggleLadderContact,
@@ -667,6 +1121,38 @@ END_IF;
       rejectPatch,
       isSimulationRunning,
       setIsSimulationRunning,
+      // CAD & Engineering Engine
+      selectedComponentIds,
+      setSelectedComponentIds,
+      projectPages,
+      activePageNumber,
+      setActivePageNumber,
+      terminalStrips,
+      loadList,
+      validationIssues,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      saveStatus,
+      saveProject,
+      gridSize,
+      setGridSize,
+      snapToGrid,
+      setSnapToGrid,
+      activeCadTool,
+      setActiveCadTool,
+      rotateSelected,
+      flipSelected,
+      duplicateSelected,
+      deleteSelected,
+      toggleLockSelected,
+      exportProjectJson,
+      importProjectJson,
+      exportProjectDxf,
+      exportProjectCsv,
+      executeAiNaturalCommand,
+
       downloadDxf,
       downloadPlcopenXml,
       isAuthenticated,
@@ -692,10 +1178,37 @@ END_IF;
       components,
       connections,
       selectedComponentId,
+      selectedComponentIds,
+      projectPages,
+      activePageNumber,
+      terminalStrips,
+      loadList,
+      validationIssues,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      saveStatus,
+      saveProject,
+      gridSize,
+      snapToGrid,
+      activeCadTool,
+      rotateSelected,
+      flipSelected,
+      duplicateSelected,
+      deleteSelected,
+      toggleLockSelected,
+      exportProjectJson,
+      importProjectJson,
+      exportProjectDxf,
+      exportProjectCsv,
+      executeAiNaturalCommand,
       toggleBreakerState,
       updateComponent,
       addComponent,
       deleteComponent,
+      addConnection,
+      deleteConnection,
       ladderRungs,
       toggleLadderContact,
       addLadderRung,

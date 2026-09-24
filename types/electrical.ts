@@ -84,6 +84,8 @@ export interface ElectricalComponent {
   powerFactor?: number; // cos phi
   efficiency?: number; // rendimento %
   poles?: number; // 2, 3, 4
+  phases?: '1F' | '2F' | '3F' | '3F+N' | '3F+N+PE' | 'DC';
+  frequency?: number; // 50, 60 Hz
   breakingCapacity?: number; // Icu (kA)
   cableCrossSection?: number; // mm²
   cableType?: 'Cobre PVC 70°C' | 'Cobre EPR/XLPE 90°C' | 'Afumex 90°C';
@@ -92,9 +94,34 @@ export interface ElectricalComponent {
   isEnergized?: boolean;
   isTripped?: boolean;
   statusText?: string;
-  manufacturer?: string; // WEG, Schneider, Prysmian
+  manufacturer?: string; // WEG, Schneider, Prysmian, Siemens
   partNumber?: string;
   unitCostBrl?: number;
+  code?: string;
+  description?: string;
+  model?: string;
+  serialNumber?: string;
+  loadType?: 'MOTOR' | 'RESISTIVE' | 'CAPACITIVE' | 'TRANSFORMER' | 'FEEDER' | 'CONTROL';
+  curve?: 'B' | 'C' | 'D' | 'MA';
+  protectionAdjustments?: string;
+  ipRating?: string;
+  applicableStandard?: string;
+  notes?: string;
+  sheetPage?: number;
+  zone?: string;
+  crossRefTag?: string;
+  starterType?: 'DIRECT' | 'STAR_DELTA' | 'SOFT_STARTER' | 'VFD' | 'REVERSING';
+  rpm?: number;
+  startingCurrentRatio?: number;
+  serviceDuty?: string;
+  insulationClass?: string;
+  rotation?: 0 | 90 | 180 | 270;
+  isMirroredX?: boolean;
+  isMirroredY?: boolean;
+  isLocked?: boolean;
+  isHidden?: boolean;
+  groupId?: string;
+  symbolId?: string;
 }
 
 export interface ElectricalConnection {
@@ -106,6 +133,201 @@ export interface ElectricalConnection {
   isEnergized: boolean;
   voltage: number;
   wireGauge?: number; // mm²
+  wireNumber?: string;
+  wireTag?: string;
+  netName?: string;
+  phase?: 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'PEN' | 'DC+' | 'DC-' | '24V' | '0V';
+  material?: 'Cobre' | 'Alumínio';
+  insulation?: 'PVC 70°C' | 'EPR 90°C' | 'XLPE 90°C' | 'Afumex 90°C';
+  wireColor?: string;
+  lengthMeters?: number;
+  conduitType?: string;
+  waypoints?: Array<{ x: number; y: number }>;
+  hasJunctionDot?: boolean;
+  isCrossed?: boolean;
+  notes?: string;
+}
+
+// CAD & DRAWING ENGINE
+export type CadTool =
+  | 'SELECT'
+  | 'WIRE'
+  | 'COMPONENT'
+  | 'TERMINAL'
+  | 'BUSBAR'
+  | 'JUNCTION'
+  | 'TEXT'
+  | 'DIMENSION'
+  | 'MEASURE'
+  | 'PAN';
+
+// PAGES & TITLE BLOCK (SELO TÉCNICO ABNT)
+export type PageCategory =
+  | 'COVER'
+  | 'UNIFILAR'
+  | 'MULTIFILAR_POWER'
+  | 'MULTIFILAR_COMMAND'
+  | 'TERMINALS'
+  | 'CABLES'
+  | 'LOAD_LIST'
+  | 'BOM'
+  | 'CALCULATIONS';
+
+export interface TitleBlockInfo {
+  projectTitle: string;
+  clientName: string;
+  engineerName: string;
+  creaNumber: string;
+  date: string;
+  revision: string;
+  scale: string;
+  sheetNumber: string;
+  totalSheets: number;
+  approvedBy: string;
+  standardReference: string;
+}
+
+export interface ProjectPage {
+  id: string;
+  pageNumber: number;
+  title: string;
+  code: string;
+  category: PageCategory;
+  titleBlock: TitleBlockInfo;
+  format: 'A3' | 'A4';
+  orientation: 'LANDSCAPE' | 'PORTRAIT';
+}
+
+// TERMINAL STRIPS (BORNES E BORNEIRAS)
+export interface TerminalBlock {
+  id: string;
+  terminalNumber: string;
+  type: 'PASS_THROUGH' | 'PE_GROUND' | 'NEUTRAL_N' | 'DISCONNECT' | 'FUSED';
+  wireInTag: string;
+  wireOutTag: string;
+  fromDeviceTag: string;
+  toDeviceTag: string;
+  wireGaugeMm2: number;
+  isBridgeConnected?: boolean;
+  pageRef: string;
+}
+
+export interface TerminalStrip {
+  id: string;
+  tag: string; // e.g. "-X1", "-X2"
+  name: string;
+  panelTag: string;
+  terminals: TerminalBlock[];
+}
+
+// MULTI-CORE CABLES
+export interface MultiCoreCable {
+  id: string;
+  tag: string;
+  cableType: string;
+  coresCount: number;
+  crossSectionMm2: number;
+  lengthMeters: number;
+  voltageRating: string;
+  fromEquipmentTag: string;
+  toEquipmentTag: string;
+  hasShield: boolean;
+  hasPE: boolean;
+  spareCoresCount: number;
+  conduitRef: string;
+  notes?: string;
+}
+
+// CROSS REFERENCES (REFERÊNCIAS CRUZADAS)
+export interface CrossReference {
+  id: string;
+  sourceTag: string;
+  sourceTerminal: string;
+  sourcePageNumber: number;
+  sourceZone: string;
+  targetTag: string;
+  targetTerminal: string;
+  targetPageNumber: number;
+  targetZone: string;
+  relationType: 'COIL_TO_CONTACT' | 'CONTACTOR_TO_MOTOR' | 'BREAKER_TO_FEEDER' | 'RELAY_TO_AUX' | 'PAGE_TO_PAGE';
+}
+
+// ELECTRICAL VALIDATION ENGINE
+export type IssueSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'RECOMMENDATION' | 'INFO';
+export type IssueCategory =
+  | 'CONNECTIVITY'
+  | 'PROTECTION'
+  | 'CONDUCTOR'
+  | 'SIZING'
+  | 'IDENTIFICATION'
+  | 'TERMINALS'
+  | 'CROSS_REF'
+  | 'STANDARDS'
+  | 'CONSISTENCY';
+
+export interface ElectricalValidationIssue {
+  id: string;
+  severity: IssueSeverity;
+  category: IssueCategory;
+  code: string;
+  title: string;
+  description: string;
+  componentId?: string;
+  componentTag?: string;
+  connectionId?: string;
+  pageNumber?: number;
+  zone?: string;
+  reason: string;
+  suggestion: string;
+}
+
+// LOAD LIST (LISTA DE CARGAS)
+export interface LoadListItem {
+  id: string;
+  tag: string;
+  equipmentName: string;
+  powerKw: number;
+  powerHp?: number;
+  voltageV: number;
+  phases: string;
+  nominalCurrentA: number;
+  powerFactor: number;
+  efficiencyPercent: number;
+  demandFactor: number;
+  demandKw: number;
+  circuitTag: string;
+  panelTag: string;
+  feederTag: string;
+  breakerRatingA: number;
+  cableSectionMm2: number;
+  status: 'OPERATIONAL' | 'STANDBY' | 'TRIPPED';
+}
+
+// PANELS AND DISTRIBUTION (QUADROS)
+export interface ElectricalPanel {
+  id: string;
+  tag: string;
+  name: string;
+  panelType: 'QGBT' | 'CCM' | 'QDL' | 'QDC' | 'AUTOMATION';
+  busbarRatingA: number;
+  incomingBreakerTag: string;
+  mainVoltageV: number;
+  circuitsCount: number;
+  installedPowerKw: number;
+  demandPowerKw: number;
+  maxShortCircuitKa: number;
+  reserveCircuitsCount: number;
+}
+
+// REVISIONS AND HISTORY
+export interface ProjectRevision {
+  id: string;
+  revisionCode: string;
+  author: string;
+  date: string;
+  reason: string;
+  comments: string;
+  changesCount: number;
 }
 
 // MULTIFILAR WIRE VIEW

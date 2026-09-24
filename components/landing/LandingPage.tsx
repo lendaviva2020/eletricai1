@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
-import { useSettings } from '@/components/shared/SettingsContext';
 import {
   Zap,
   ArrowRight,
@@ -25,12 +24,10 @@ import {
   ExternalLink,
   Code2,
   Lock,
-  Settings,
 } from 'lucide-react';
 
 export function LandingPage() {
   const { openWorkspaceFromLanding, openLoginFromLanding } = useWorkspace();
-  const { openSettings } = useSettings();
 
   // Contact / Enterprise Demo Modal
   const [enterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
@@ -127,15 +124,6 @@ export function LandingPage() {
 
           {/* Direita: Ações */}
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => openSettings()}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 bg-[#161A22] border border-[#232833] hover:border-amber-500/50 transition-colors group"
-              title="Configurações do Sistema e Normas ABNT"
-            >
-              <Settings className="h-4 w-4 group-hover:rotate-45 transition-transform duration-200" />
-            </button>
-
             <button
               onClick={openLoginFromLanding}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-[#161A22] border border-[#232833] hover:border-slate-700 transition-colors"
