@@ -21,14 +21,14 @@ export interface UserProfile {
 }
 
 // SHARED TAG ENGINE
-export type TagType = 'BOOL' | 'INT' | 'REAL' | 'TIME' | 'STRING';
+export type TagType = 'BOOL' | 'INT' | 'REAL' | 'TIME' | 'STRING' | 'BOOLEAN' | 'NUMBER';
 export type TagDirection = 'INPUT' | 'OUTPUT' | 'INTERNAL' | 'ANALOG_IN' | 'ANALOG_OUT';
 
 export interface SharedTag {
   id: string; // e.g. 'tag_q02'
   name: string; // e.g. 'Q02_COMPRESSOR'
   description: string;
-  address: string; // e.g. '%Q0.2' or '%I0.1' or '%IW64'
+  address?: string; // e.g. '%Q0.2' or '%I0.1' or '%IW64'
   dataType: TagType;
   direction: TagDirection;
   currentValue: boolean | number | string;
@@ -38,6 +38,9 @@ export interface SharedTag {
   isAlarmActive?: boolean;
   circuitId?: string;
   linkedComponentId?: string;
+  sourceModule?: string;
+  lastUpdated?: string;
+  quality?: 'GOOD' | 'BAD' | 'UNCERTAIN';
 }
 
 // UNIFILAR & ELECTRICAL CIRCUIT TYPES
@@ -55,7 +58,9 @@ export type ComponentCategory =
   | 'DR_PROTECTION'     // Dispositivo Diferencial Residual (DR 30mA ou 300mA)
   | 'DPS_PROTECTION'    // Dispositivo de Proteção contra Surtos (DPS Classe II)
   | 'CAPACITOR_BANK'    // Banco de Capacitores para correção de fator de potência
-  | 'DISTRIBUTION_BOARD';// Quadro Terminal
+  | 'DISTRIBUTION_BOARD'// Quadro Terminal
+  | 'PUSH_BUTTON'       // Botoeira / Botão de comando
+  | 'PILOT_LIGHT';      // Sinalizador / Lâmpada piloto
 
 export interface ElectricalPort {
   id: string;
@@ -108,6 +113,7 @@ export interface ElectricalComponent {
   applicableStandard?: string;
   notes?: string;
   sheetPage?: number;
+  pageNumber?: number;
   zone?: string;
   crossRefTag?: string;
   starterType?: 'DIRECT' | 'STAR_DELTA' | 'SOFT_STARTER' | 'VFD' | 'REVERSING';

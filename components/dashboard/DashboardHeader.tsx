@@ -24,6 +24,7 @@ import {
   Layers,
   Home,
   X,
+  Menu,
 } from 'lucide-react';
 
 interface DashboardHeaderProps {
@@ -33,6 +34,7 @@ interface DashboardHeaderProps {
   onOpenNewProjectModal: () => void;
   projects: IndustrialProject[];
   onSelectProject: (project: IndustrialProject) => void;
+  onToggleMobileSidebar?: () => void;
 }
 
 export function DashboardHeader({
@@ -42,6 +44,7 @@ export function DashboardHeader({
   onOpenNewProjectModal,
   projects,
   onSelectProject,
+  onToggleMobileSidebar,
 }: DashboardHeaderProps) {
   const {
     user,
@@ -107,7 +110,7 @@ export function DashboardHeader({
     ? sharedTags.filter(
         t =>
           t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (t.address ? t.address.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
           t.description.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 5)
     : [];
@@ -116,13 +119,24 @@ export function DashboardHeader({
 
   return (
     <header className="w-full bg-[#11141A] border-b border-[#232833] px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-md">
-      {/* 1. Left: Personalized Greeting & Current Tenant */}
-      <div className="flex items-center gap-4">
-        <div>
-          <h1 className="text-sm sm:text-base font-bold text-slate-100 font-sans tracking-tight">
+      {/* 1. Left: Mobile Hamburger & Personalized Greeting */}
+      <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+        {onToggleMobileSidebar && (
+          <button
+            type="button"
+            onClick={onToggleMobileSidebar}
+            className="md:hidden p-1.5 rounded-lg bg-[#161A22] border border-[#232833] text-slate-300 hover:text-amber-400 hover:border-amber-500/50 transition-colors shrink-0"
+            title="Abrir menu de navegação"
+            aria-label="Abrir menu de navegação"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-sm sm:text-base font-bold text-slate-100 font-sans tracking-tight truncate">
             {greeting}, <span className="text-amber-400">{user.name.replace('Eng. ', '').replace('Engª. ', '')}</span>
           </h1>
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 truncate">
             <button
               type="button"
               onClick={() => setIsSelectingTenant(true)}

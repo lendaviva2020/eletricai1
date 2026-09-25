@@ -23,6 +23,7 @@ import {
   Zap,
   Trash2,
   Copy,
+  X,
 } from 'lucide-react';
 
 interface ElementPropertiesProps {

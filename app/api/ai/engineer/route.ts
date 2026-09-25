@@ -97,7 +97,7 @@ Responda APENAS com um bloco JSON válido contendo o objeto do patch ou, caso a 
     });
 
     const responseText = response.text || '{}';
-    let parsed: any;
+    let parsed: Partial<AiPatchProposal>;
     try {
       parsed = JSON.parse(responseText);
     } catch {
@@ -123,14 +123,15 @@ Responda APENAS com um bloco JSON válido contendo o objeto do patch ou, caso a 
       success: true,
       proposal: patchProposal,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro na rota Gemini AI Engineer:', error);
     const fallbackProposal = generateFallbackPatch('Ajuste de proteção NBR 5410');
+    const errMsg = error instanceof Error ? error.message : 'Erro de comunicação';
     return NextResponse.json({
       success: true,
       proposal: fallbackProposal,
       fallbackUsed: true,
-      errorNotice: error?.message || 'Erro de comunicação',
+      errorNotice: errMsg,
     });
   }
 }

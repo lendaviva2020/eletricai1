@@ -47,14 +47,16 @@ export function AiCircuitGenerationModal({
 }: AiCircuitGenerationModalProps) {
   const [activeTab, setActiveTab] = useState<'PREVIEW' | 'COMPONENTS' | 'CONNECTIONS' | 'LADDER' | 'CALCULATIONS'>('PREVIEW');
   const [inputPrompt, setInputPrompt] = useState('');
-  const [editableSpec, setEditableSpec] = useState<AiStructuredCircuitSpecification | null>(null);
+  const [prevSpecification, setPrevSpecification] = useState<AiStructuredCircuitSpecification | null>(specification);
+  const [editableSpec, setEditableSpec] = useState<AiStructuredCircuitSpecification | null>(
+    specification ? JSON.parse(JSON.stringify(specification)) : null
+  );
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (specification) {
-      setEditableSpec(JSON.parse(JSON.stringify(specification)));
-    }
-  }, [specification]);
+  if (specification !== prevSpecification) {
+    setPrevSpecification(specification);
+    setEditableSpec(specification ? JSON.parse(JSON.stringify(specification)) : null);
+  }
 
   if (!isOpen) return null;
 
@@ -73,7 +75,11 @@ export function AiCircuitGenerationModal({
     }
   };
 
-  const handleUpdateComponentParam = (tag: string, field: keyof AiCircuitSpecComponent, value: any) => {
+  const handleUpdateComponentParam = <K extends keyof AiCircuitSpecComponent>(
+    tag: string,
+    field: K,
+    value: AiCircuitSpecComponent[K]
+  ) => {
     if (!editableSpec) return;
     setEditableSpec({
       ...editableSpec,

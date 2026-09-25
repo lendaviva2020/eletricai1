@@ -85,7 +85,7 @@ function WorkspaceContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0D10]">
+    <div className="flex flex-col h-screen h-[100dvh] w-full min-w-0 max-w-full overflow-hidden bg-[#0B0D10]">
       {/* Top Application Header */}
       <Header />
 

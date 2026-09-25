@@ -12,6 +12,10 @@ import {
   PlcLadderElementType,
   LadderContactType,
   LadderCoilType,
+  LadderTimerType,
+  LadderCounterType,
+  LadderCompareOperator,
+  LadderMathOperator,
 } from '@/types/plc';
 import { INITIAL_PLC_PROGRAM_CONFIG } from '@/lib/plc-default-project';
 import { PlcLadderEngine } from '@/lib/plc-simulator-engine';
@@ -203,10 +207,10 @@ export function LadderEditor() {
       elementType,
       contactType: elementType === 'CONTACT' ? (subType as LadderContactType) || 'CONTACT_NO' : undefined,
       coilType: elementType === 'COIL' ? (subType as LadderCoilType) || 'COIL_NORMAL' : undefined,
-      timerType: elementType === 'TIMER' ? (subType as any) || 'TON' : undefined,
-      counterType: elementType === 'COUNTER' ? (subType as any) || 'CTU' : undefined,
-      compareOp: elementType === 'COMPARE' ? (subType as any) || 'EQ' : undefined,
-      mathOp: elementType === 'MATH' ? (subType as any) || 'ADD' : undefined,
+      timerType: elementType === 'TIMER' ? (subType as LadderTimerType) || 'TON' : undefined,
+      counterType: elementType === 'COUNTER' ? (subType as LadderCounterType) || 'CTU' : undefined,
+      compareOp: elementType === 'COMPARE' ? (subType as LadderCompareOperator) || 'EQ' : undefined,
+      mathOp: elementType === 'MATH' ? (subType as LadderMathOperator) || 'ADD' : undefined,
       variableName: targetVar,
       row: 0,
       col: elementType === 'COIL' ? 5 : firstRung.elements.length,
@@ -450,7 +454,14 @@ export function LadderEditor() {
     if (result) {
       setAiProposal(result);
     } else {
-      alert('Comando não reconhecido. Experimente: "Crie uma partida direta para o motor M01" ou "Adicione intertravamento".');
+      setAiProposal({
+        title: 'IA Copilot PLC: Sugestão de Comando',
+        description: 'Comando não reconhecido pelo motor determinístico IEC 61131-3.',
+        affectedRungNumbers: [],
+        affectedVariables: [],
+        proposedProgram: program,
+        explanation: 'Experimente comandos como:\n• "Crie uma partida direta para o motor M01"\n• "Adicione timer de 5s para partida"\n• "Configure intertravamento de segurança"\n• "Resetar falha com rearme manual"',
+      });
     }
   };
 
@@ -463,9 +474,9 @@ export function LadderEditor() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden font-mono">
+    <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden font-mono w-full min-w-0 max-w-full">
       {/* 1. Industrial Top Control Bar */}
-      <div className="h-11 px-3 bg-[#11141A] border-b border-[#232833] flex items-center justify-between">
+      <div className="min-h-11 px-3 py-1 bg-[#11141A] border-b border-[#232833] flex items-center justify-between gap-2 sm:gap-3 overflow-x-auto no-scrollbar whitespace-nowrap min-w-0">
         {/* Left: Branding & Status */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -629,7 +640,7 @@ export function LadderEditor() {
       </div>
 
       {/* 2. AI Generative Copilot Bar */}
-      <div className="h-10 px-3 bg-[#0E1117] border-b border-[#232833] flex items-center justify-between">
+      <div className="min-h-10 px-3 py-1 bg-[#0E1117] border-b border-[#232833] flex items-center justify-between gap-2 overflow-x-auto no-scrollbar whitespace-nowrap min-w-0">
         <div className="flex items-center gap-2 flex-1 max-w-3xl">
           <div className="flex items-center gap-1 text-amber-400 font-bold text-xs">
             <Sparkles className="h-3.5 w-3.5 animate-pulse" />

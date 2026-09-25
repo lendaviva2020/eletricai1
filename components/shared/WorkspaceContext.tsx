@@ -6,7 +6,10 @@ import {
   UserProfile,
   TenantRole,
   SharedTag,
+  TagType,
+  TagDirection,
   ElectricalComponent,
+  ComponentCategory,
   ElectricalConnection,
   LadderRung,
   FbdBlock,
@@ -232,22 +235,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isSelectingTenant, setIsSelectingTenant] = useState<boolean>(true);
   const [isViewingLanding, setIsViewingLanding] = useState<boolean>(true);
 
-  // Restore persistent session on mount
+  // Restore persistent session on mount asynchronously to prevent cascading renders
   useEffect(() => {
-    const session = DatabaseAuthService.getCurrentSession();
-    if (session) {
-      setUser({
-        id: session.id,
-        name: session.name,
-        email: session.email,
-        role: session.role,
-        creaNumber: session.creaNumber || 'CREA-SP 50849201',
-        tenantId: session.tenantId || 'tenant_braskem_01',
-      });
-      setIsAuthenticated(true);
-      setIsViewingLanding(false);
-      setIsSelectingTenant(false);
-    }
+    const timer = setTimeout(() => {
+      const session = DatabaseAuthService.getCurrentSession();
+      if (session) {
+        setUser({
+          id: session.id,
+          name: session.name,
+          email: session.email,
+          role: session.role,
+          creaNumber: session.creaNumber || 'CREA-SP 50849201',
+          tenantId: session.tenantId || 'tenant_braskem_01',
+        });
+        setIsAuthenticated(true);
+        setIsViewingLanding(false);
+        setIsSelectingTenant(false);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const openWorkspaceFromLanding = useCallback(() => {
@@ -700,7 +706,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       } else {
         setGenerationStep('Erro ao processar circuito: ' + (data.error || 'Falha na resposta'));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro na chamada da IA DeepSeek:', err);
       setGenerationStep('Erro de comunicação. O motor de cálculo elétrico permanecerá ativo.');
     } finally {
@@ -774,6 +780,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         id: `tag_${comp.tag.toLowerCase()}`,
         name: comp.tag,
         description: comp.name,
+        address: `%M10.${idx}`,
         dataType: comp.category === 'MOTOR_3P' || comp.category === 'CONTACTOR' ? 'BOOLEAN' : 'NUMBER',
         direction: 'INTERNAL',
         currentValue: comp.category === 'MOTOR_BREAKER' ? true : false,
@@ -894,7 +901,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       `);
 
       const result = safeExecute(currentTagDict);
-      const newLogs: ScadaScriptLog[] = (result?.logs || []).map((l: any) => ({
+      const newLogs: ScadaScriptLog[] = ((result?.logs || []) as Array<{ level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS'; message?: string }>).map(l => ({
         timestamp: new Date().toLocaleTimeString(),
         level: l.level || 'INFO',
         message: l.message || '',
@@ -907,12 +914,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       });
 
       setScadaLogs(prev => [...newLogs, ...prev].slice(0, 30));
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       setScadaLogs(prev => [
         {
           timestamp: new Date().toLocaleTimeString(),
           level: 'ERROR',
-          message: `Erro na sandbox do Web Worker: ${err.message}`,
+          message: `Erro na sandbox do Web Worker: ${errMsg}`,
         },
         ...prev,
       ]);
@@ -928,12 +936,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     patch.changes.forEach(change => {
       if (change.targetType === 'COMPONENT') {
         if (change.action === 'ADD') {
-          const after = change.after as any;
+          const after = (change.after || {}) as Record<string, unknown>;
           const newComp: ElectricalComponent = {
             id: change.targetId || `comp_${Date.now()}`,
             tag: change.targetName,
             name: String(after.name || change.targetName),
-            category: (after.category as any) || 'MOTOR_BREAKER',
+            category: (after.category as ComponentCategory) || 'MOTOR_BREAKER',
             x: 200 + Math.random() * 200,
             y: 520,
             width: 140,
@@ -956,10 +964,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           };
           setComponents(prev => [...prev, newComp]);
         } else if (change.action === 'MODIFY') {
+          const after = (change.after || {}) as Partial<ElectricalComponent>;
           setComponents(prev =>
             prev.map(c => {
               if (c.tag === change.targetName || c.id === change.targetId) {
-                return { ...c, ...(change.after as any) };
+                return { ...c, ...after };
               }
               return c;
             })
@@ -969,20 +978,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (change.targetType === 'TAG') {
         if (change.action === 'ADD') {
-          const after = change.after as any;
+          const after = (change.after || {}) as Record<string, unknown>;
           const newTag: SharedTag = {
             id: change.targetId || `tag_${Date.now()}`,
             name: change.targetName,
             description: `Criada via Patch: ${change.technicalRationale}`,
             address: String(after.address || '%M10.0'),
-            dataType: (after.dataType as any) || 'BOOL',
-            direction: (after.direction as any) || 'OUTPUT',
+            dataType: (after.dataType as TagType) || 'BOOL',
+            direction: (after.direction as TagDirection) || 'OUTPUT',
             currentValue: false,
           };
           addSharedTag(newTag);
         }
       } else if (change.targetType === 'CABLE_GAUGE') {
-        const after = change.after as any;
+        const after = (change.after || {}) as Record<string, unknown>;
         setComponents(prev =>
           prev.map(c => {
             if (c.tag === change.targetName || c.id === change.targetId) {
@@ -1064,7 +1073,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           <localVars>
 ${sharedTags.map(t => `            <variable name="${t.name}">
               <type><${t.dataType.toLowerCase()}/></type>
-              <address>${t.address}</address>
+              <address>${t.address || ''}</address>
               <documentation><xhtml xmlns="http://www.w3.org/1999/xhtml">${t.description}</xhtml></documentation>
             </variable>`).join('\n')}
           </localVars>

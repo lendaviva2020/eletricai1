@@ -75,23 +75,23 @@ export function Header() {
   return (
     <header className="w-full bg-[#11141A] border-b border-[#232833] text-slate-200 select-none z-30 sticky top-0">
       {/* Top Banner Bar */}
-      <div className="h-14 px-4 flex items-center justify-between border-b border-[#1A1F29]">
+      <div className="h-14 px-2 sm:px-4 flex items-center justify-between border-b border-[#1A1F29] gap-2 max-w-full">
         {/* Left: Brand & Project */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="h-8 w-8 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)] shrink-0">
               <Zap className="h-4 w-4 fill-amber-400" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base tracking-wider text-slate-100 font-sans">
+                <span className="font-bold text-sm sm:text-base tracking-wider text-slate-100 font-sans">
                   ELETRIC<span className="text-amber-400 font-black">AI</span>
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161A22] border border-[#232833] text-amber-300/90 font-mono">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161A22] border border-[#232833] text-amber-300/90 font-mono hidden xs:inline">
                   v2.4 LTS
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 tracking-tight">
+              <p className="text-[10px] text-slate-400 tracking-tight hidden sm:block">
                 Sistema Operacional Industrial com IA
               </p>
             </div>

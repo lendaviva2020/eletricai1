@@ -472,7 +472,7 @@ function SettingsDialogContent() {
                     </label>
                     <select
                       value={form.groundingSystem}
-                      onChange={e => handleFieldChange('groundingSystem', e.target.value as any)}
+                      onChange={e => handleFieldChange('groundingSystem', e.target.value as SystemSettings['groundingSystem'])}
                       className="w-full bg-[#11141A] border border-[#232833] rounded px-3 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 outline-none"
                     >
                       <option value="TN-S">TN-S (Neutro e PE Separados - Recomendado)</option>
@@ -633,7 +633,7 @@ function SettingsDialogContent() {
                       </label>
                       <select
                         value={form.aiModel}
-                        onChange={e => handleFieldChange('aiModel', e.target.value as any)}
+                        onChange={e => handleFieldChange('aiModel', e.target.value as SystemSettings['aiModel'])}
                         className="w-full bg-[#11141A] border border-[#232833] rounded px-2.5 py-1.5 text-xs font-mono text-amber-300 focus:border-amber-500 outline-none"
                       >
                         <option value="deepseek-chat">DeepSeek-V3 (Chat/Síntese)</option>

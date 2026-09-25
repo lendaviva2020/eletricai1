@@ -183,7 +183,7 @@ export function performEngineeringValidation(
  * Validates the schema of an AI-generated specification and runs engineering checks
  */
 export function validateStructuredCircuitSpecification(
-  spec: any,
+  spec: Partial<AiStructuredCircuitSpecification> & Record<string, unknown>,
   context: ProjectContextInput
 ): { isValid: boolean; validatedSpec?: AiStructuredCircuitSpecification; errors: string[] } {
   const errors: string[] = [];
@@ -211,7 +211,7 @@ export function validateStructuredCircuitSpecification(
   // Check collision with existing project TAGs
   const existingSet = new Set((context.existingTags || []).map(t => t.toUpperCase()));
   const collisions = Array.from(internalTags).filter(t => existingSet.has(t));
-  if (collisions.length > 0) {
+  if (collisions.length > 0 && spec.components) {
     // Auto-fix collisions rather than fatal error
     spec.components = spec.components.map((c: AiCircuitSpecComponent) => {
       if (existingSet.has(c.tag.toUpperCase())) {
@@ -228,7 +228,7 @@ export function validateStructuredCircuitSpecification(
   }
 
   // Ensure engineering calculations are recalculated and verified
-  const powerKw = spec.components?.find((c: any) => c.category === 'MOTOR_3P')?.powerKw || 15;
+  const powerKw = spec.components?.find((c: AiCircuitSpecComponent) => c.category === 'MOTOR_3P')?.powerKw || 15;
   const voltage = spec.components?.[0]?.voltage || context.projectVoltage || 380;
   const circuitType: CircuitType = spec.circuitType || 'direct_starter';
   const engCalc = performEngineeringValidation(powerKw, voltage, circuitType);

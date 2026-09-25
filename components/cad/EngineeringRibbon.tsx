@@ -125,10 +125,10 @@ export function EngineeringRibbon({
   };
 
   return (
-    <div className="flex flex-col bg-[#11141A] border-b border-[#232833] z-30 select-none text-slate-300">
+    <div className="flex flex-col bg-[#11141A] border-b border-[#232833] z-30 select-none text-slate-300 w-full min-w-0 max-w-full">
       {/* 1. Dropdown Menubar (Arquivo, Editar, Exibir, Inserir, Projeto, Ferramentas, Análise, Exportar) */}
-      <div className="h-7 px-3 bg-[#0D1017] border-b border-[#1E2533] flex items-center justify-between text-[11px] font-mono">
-        <div className="flex items-center gap-1">
+      <div className="h-7 px-3 bg-[#0D1017] border-b border-[#1E2533] flex items-center justify-between text-[11px] font-mono overflow-x-auto no-scrollbar whitespace-nowrap min-w-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* File Menu */}
           <div className="relative">
             <button
@@ -329,7 +329,7 @@ export function EngineeringRibbon({
       </div>
 
       {/* 2. Tool Strip (Fast Actions, Tools, AI Bar, Grid, Transforms) */}
-      <div className="h-11 px-3 flex items-center justify-between gap-3">
+      <div className="h-11 px-3 flex items-center justify-between gap-2 sm:gap-3 overflow-x-auto no-scrollbar whitespace-nowrap min-w-0">
         {/* Drawing Tools Palette */}
         <div className="flex items-center gap-1 bg-[#161A22] border border-[#232833] p-1 rounded">
           <button

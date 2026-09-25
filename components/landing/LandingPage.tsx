@@ -54,6 +54,8 @@ export function LandingPage() {
     }, 2200);
   };
 
+  const [legalNotice, setLegalNotice] = useState<{ title: string; text: string } | null>(null);
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
@@ -842,14 +844,22 @@ export function LandingPage() {
             </div>
             <div className="flex items-center gap-6">
               <button
-                onClick={() => alert('Termos de Uso VOLTAI: Plataforma em conformidade com as normas do CONFEA/CREA e LGPD.')}
-                className="hover:text-white transition-colors"
+                type="button"
+                onClick={() => setLegalNotice({
+                  title: 'Termos de Serviço VOLTAI',
+                  text: 'Plataforma SaaS de engenharia elétrica em estrita conformidade com as normas ABNT NBR 5410, NBR 14039, NR-10 e resoluções do Sistema CONFEA/CREA. O software atua como ferramenta de assistência ao responsável técnico habilitado (ART).'
+                })}
+                className="hover:text-white transition-colors cursor-pointer"
               >
                 Termos de Serviço
               </button>
               <button
-                onClick={() => alert('Política de Privacidade: Dados industriais isolados por tenant via PostgreSQL RLS.')}
-                className="hover:text-white transition-colors"
+                type="button"
+                onClick={() => setLegalNotice({
+                  title: 'Política de Privacidade & Segurança Industrial',
+                  text: 'Dados de diagramas, tags e topologia industrial são protegidos e isolados por tenant via PostgreSQL Row Level Security (RLS). Nenhuma credencial ou diagrama privado é exposto publicamente conforme os preceitos da LGPD.'
+                })}
+                className="hover:text-white transition-colors cursor-pointer"
               >
                 Privacidade
               </button>

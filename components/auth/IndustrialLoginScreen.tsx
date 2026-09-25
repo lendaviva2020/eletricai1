@@ -94,7 +94,7 @@ export function IndustrialLoginScreen() {
         const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');
         login(emailOrTag, isBeatriz ? 'engineer' : 'admin');
       }
-    } catch (err: any) {
+    } catch {
       setIsLoading(false);
       // Fallback local login
       const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');

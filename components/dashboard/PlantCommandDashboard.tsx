@@ -39,6 +39,7 @@ export function PlantCommandDashboard() {
   // State
   const [currentView, setCurrentView] = useState<DashboardActiveView>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [projects, setProjects] = useState<IndustrialProject[]>(INITIAL_PROJECTS);
   const [selectedProject, setSelectedProject] = useState<IndustrialProject>(INITIAL_PROJECTS[0]);
   const [alerts, setAlerts] = useState<IndustrialAlert[]>(INITIAL_ALERTS);
@@ -128,10 +129,12 @@ export function PlantCommandDashboard() {
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
         criticalAlertCount={criticalAlertCount}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
       {/* 2. Main Workspace Layout */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
         {/* Top Header */}
         <DashboardHeader
           notifications={notifications}
@@ -143,6 +146,7 @@ export function PlantCommandDashboard() {
             setSelectedProject(p);
             setActiveTab(p.targetTab);
           }}
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen(p => !p)}
         />
 
         {/* Scrollable Content Body */}

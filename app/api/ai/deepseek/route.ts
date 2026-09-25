@@ -167,9 +167,9 @@ Contexto atual da planta:
         clearTimeout(timeoutId);
 
         if (deepseekResponse.ok) {
-          const dsData = await deepseekResponse.json();
+          const dsData = (await deepseekResponse.json()) as { choices?: Array<{ message?: { content?: string } }> };
           const rawContent = dsData.choices?.[0]?.message?.content || '{}';
-          let parsedSpec: any;
+          let parsedSpec: (Partial<AiStructuredCircuitSpecification> & Record<string, unknown>) | null = null;
           try {
             parsedSpec = JSON.parse(rawContent);
           } catch {
@@ -200,8 +200,9 @@ Contexto atual da planta:
             await deepseekResponse.text().catch(() => '')
           );
         }
-      } catch (deepseekError: any) {
-        console.warn('Erro ao conectar com DeepSeek API:', deepseekError?.message);
+      } catch (deepseekError: unknown) {
+        const dsErrMsg = deepseekError instanceof Error ? deepseekError.message : String(deepseekError);
+        console.warn('Erro ao conectar com DeepSeek API:', dsErrMsg);
         // Fallback to deterministic engine below without failing user experience
       }
     }
@@ -222,12 +223,13 @@ Contexto atual da planta:
         ? 'Circuito gerado pelo motor de engenharia EletricAI com parâmetros de cálculo ABNT NBR 5410.'
         : 'Circuito sintetizado pelo motor de engenharia EletricAI (DEEPSEEK_API_KEY pronta para ativação).',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro geral no endpoint DeepSeek:', error);
+    const errMsg = error instanceof Error ? error.message : 'Falha no processamento da solicitação de IA.';
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || 'Falha no processamento da solicitação de IA.',
+        error: errMsg,
       },
       { status: 500 }
     );
