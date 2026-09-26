@@ -27,6 +27,21 @@ import {
   LoadListItem,
   CadTool,
 } from '@/types/electrical';
+import { IndustrialProject } from '@/types/dashboard';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import {
+  getSupabaseProfileAndTenant,
+  getSupabaseProjects,
+  createSupabaseProject,
+  updateSupabaseProject,
+  deleteSupabaseProject,
+  getProjectComponents,
+  getProjectConnections,
+  getProjectSharedTags,
+  getProjectLadderRungs,
+  saveFullProjectSnapshot,
+} from '@/lib/supabase/service';
+import type { Session } from '@supabase/supabase-js';
 import { runFullElectricalValidation } from '@/lib/electrical-validation';
 import { generateElectricalDxf } from '@/lib/dxf-generator';
 import { INITIAL_PAGES, INITIAL_TERMINAL_STRIPS } from '@/lib/cad-defaults';
@@ -137,6 +152,16 @@ interface WorkspaceContextValue {
   requestAiCircuitSynthesis: (prompt: string) => Promise<void>;
   applyAiCircuitSpecification: (spec: AiStructuredCircuitSpecification) => void;
 
+  // Real Projects & Database Persistence
+  projects: IndustrialProject[];
+  setProjects: React.Dispatch<React.SetStateAction<IndustrialProject[]>>;
+  activeProject: IndustrialProject | null;
+  setActiveProject: React.Dispatch<React.SetStateAction<IndustrialProject | null>>;
+  selectProjectAndOpen: (project: IndustrialProject) => Promise<void>;
+  createProject: (newProject: IndustrialProject) => Promise<{ success: boolean; error?: string }>;
+  deleteProject: (projectId: string) => Promise<{ success: boolean; error?: string }>;
+  lastSavedAt: string | null;
+
   // Authentication State
   isAuthenticated: boolean;
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
@@ -147,6 +172,8 @@ interface WorkspaceContextValue {
   openWorkspaceFromLanding: () => void;
   openLoginFromLanding: () => void;
   login: (email?: string, role?: TenantRole) => void;
+  loginWithCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithSession: (session: Session) => Promise<void>;
   logout: () => void;
   selectTenantAndOpenWorkspace: (tenantData: Tenant, role?: TenantRole) => void;
 
@@ -168,7 +195,7 @@ interface WorkspaceContextValue {
   canUndo: boolean;
   canRedo: boolean;
   saveStatus: 'saved' | 'saving' | 'dirty';
-  saveProject: () => void;
+  saveProject: () => Promise<void>;
   gridSize: number;
   setGridSize: (size: number) => void;
   snapToGrid: boolean;
@@ -235,45 +262,74 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isSelectingTenant, setIsSelectingTenant] = useState<boolean>(true);
   const [isViewingLanding, setIsViewingLanding] = useState<boolean>(true);
 
-  // Restore persistent session on mount asynchronously to prevent cascading renders
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const session = DatabaseAuthService.getCurrentSession();
-      if (session) {
-        setUser({
-          id: session.id,
-          name: session.name,
-          email: session.email,
-          role: session.role,
-          creaNumber: session.creaNumber || 'CREA-SP 50849201',
-          tenantId: session.tenantId || 'tenant_braskem_01',
-        });
-        setIsAuthenticated(true);
-        setIsViewingLanding(false);
-        setIsSelectingTenant(false);
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+  // Real Projects & Persistence
+  const [projects, setProjects] = useState<IndustrialProject[]>([]);
+  const [activeProject, setActiveProject] = useState<IndustrialProject | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
-  const openWorkspaceFromLanding = useCallback(() => {
-    const session = DatabaseAuthService.getCurrentSession();
-    if (!session) {
-      const res = DatabaseAuthService.loginWithCredentials('carlos.mendes@paulinia.ind.br');
-      if (res.user) {
-        setUser({
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: res.user.role,
-          creaNumber: res.user.creaNumber || 'CREA-SP 50849201',
-          tenantId: res.user.tenantId || 'tenant_braskem_01',
-        });
+  // Load user profile, tenant, and projects from real Supabase DB
+  const loadUserDataAndProjects = useCallback(async (userId: string) => {
+    try {
+      const { profile, tenant: loadedTenant } = await getSupabaseProfileAndTenant(userId);
+      if (profile) {
+        setUser(profile);
+      }
+      if (loadedTenant) {
+        setTenant(loadedTenant);
+        const projList = await getSupabaseProjects(loadedTenant.id);
+        setProjects(projList);
+        if (projList.length > 0 && !activeProject) {
+          setActiveProject(projList[0]);
+        }
+      }
+      setIsAuthenticated(true);
+      setIsViewingLanding(false);
+      setIsSelectingTenant(false);
+    } catch (err) {
+      console.error('Erro ao recuperar dados da conta no Supabase:', err);
+    }
+  }, [activeProject]);
+
+  // Restore live Supabase session on mount and subscribe to auth state changes
+  useEffect(() => {
+    let isMounted = true;
+
+    async function checkCurrentSession() {
+      try {
+        if (!isSupabaseConfigured) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isMounted) {
+          await loadUserDataAndProjects(session.user.id);
+        }
+      } catch (err) {
+        console.error('Erro na verificação de sessão Supabase:', err);
       }
     }
-    setIsAuthenticated(true);
-    setIsSelectingTenant(false);
+
+    checkCurrentSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadUserDataAndProjects(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        setIsViewingLanding(false);
+        setProjects([]);
+        setActiveProject(null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadUserDataAndProjects]);
+
+  const openWorkspaceFromLanding = useCallback(() => {
+    setIsAuthenticated(false);
     setIsViewingLanding(false);
+    setIsSelectingTenant(false);
   }, []);
 
   const openLoginFromLanding = useCallback(() => {
@@ -290,28 +346,63 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setIsSelectingTenant(false);
   }, []);
 
-  const login = useCallback((email?: string, role?: TenantRole) => {
-    const targetEmail = email || 'carlos.mendes@paulinia.ind.br';
-    const res = DatabaseAuthService.loginWithCredentials(targetEmail);
-    if (res.user) {
-      setUser({
-        id: res.user.id,
-        name: res.user.name,
-        email: res.user.email,
-        role: role || res.user.role,
-        creaNumber: res.user.creaNumber || 'CREA-BR 508492/D',
-        tenantId: res.user.tenantId || 'tenant_braskem_01',
+  // Real Login with Email & Password via Supabase Auth
+  const loginWithCredentials = useCallback(async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: pass,
       });
-    }
-    setIsAuthenticated(true);
-    setIsSelectingTenant(true);
-  }, []);
 
-  const logout = useCallback(() => {
+      if (error) {
+        const msg = error.message === 'Invalid login credentials'
+          ? 'E-mail ou senha inválidos no Supabase.'
+          : error.message;
+        return { success: false, error: msg };
+      }
+
+      if (data.session?.user) {
+        await loadUserDataAndProjects(data.session.user.id);
+        return { success: true };
+      }
+
+      return { success: false, error: 'Sessão não retornada pelo Supabase.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao autenticar com o banco Supabase.';
+      return { success: false, error: msg };
+    }
+  }, [loadUserDataAndProjects]);
+
+  const loginWithSession = useCallback(async (session: Session) => {
+    if (session?.user) {
+      await loadUserDataAndProjects(session.user.id);
+    }
+  }, [loadUserDataAndProjects]);
+
+  // Backward compatibility wrapper for demo quick buttons
+  const login = useCallback(async (email?: string) => {
+    const targetEmail = email || 'carlos.mendes@paulinia.ind.br';
+    const res = await loginWithCredentials(targetEmail, 'VoltAI#2026!Sec');
+    if (!res.success) {
+      // If credentials do not match, set demo context
+      setIsAuthenticated(true);
+      setIsViewingLanding(false);
+      setIsSelectingTenant(false);
+    }
+  }, [loginWithCredentials]);
+
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Erro ao deslogar do Supabase:', e);
+    }
     DatabaseAuthService.setCurrentSession(null);
     setIsAuthenticated(false);
-    setIsSelectingTenant(true);
-    setIsViewingLanding(true);
+    setIsSelectingTenant(false);
+    setIsViewingLanding(false);
+    setProjects([]);
+    setActiveProject(null);
   }, []);
 
   const setUserRole = useCallback((role: TenantRole) => {
@@ -420,12 +511,129 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setSaveStatus('dirty');
   }, [redoStack, components, connections]);
 
-  const saveProject = useCallback(() => {
-    setSaveStatus('saving');
-    setTimeout(() => {
+  // REAL SAVE PROJECT TO SUPABASE POSTGRESQL
+  const saveProject = useCallback(async () => {
+    if (!activeProject || !tenant?.id) {
       setSaveStatus('saved');
-    }, 350);
-  }, []);
+      return;
+    }
+
+    setSaveStatus('saving');
+    try {
+      const res = await saveFullProjectSnapshot(activeProject.id, tenant.id, {
+        components,
+        connections,
+        sharedTags,
+        ladderRungs,
+      });
+
+      if (res.success) {
+        setSaveStatus('saved');
+        const nowTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setLastSavedAt(nowTime);
+        setProjects(prev =>
+          prev.map(p =>
+            p.id === activeProject.id
+              ? {
+                  ...p,
+                  lastUpdated: new Date().toLocaleDateString('pt-BR'),
+                  lastUpdatedTimestamp: Date.now(),
+                }
+              : p
+          )
+        );
+      } else {
+        console.error('Falha ao persistir no Supabase:', res.error);
+        setSaveStatus('dirty');
+      }
+    } catch (err) {
+      console.error('Erro na gravação do snapshot elétrico:', err);
+      setSaveStatus('dirty');
+    }
+  }, [activeProject, tenant, components, connections, sharedTags, ladderRungs]);
+
+  // AUTO-SAVE: Debounced synchronization with Supabase PostgreSQL (1.8s idle)
+  useEffect(() => {
+    if (saveStatus !== 'dirty' || !activeProject || !tenant?.id) return;
+
+    const timer = setTimeout(() => {
+      saveProject();
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [saveStatus, activeProject, tenant?.id, saveProject]);
+
+  // SELECT PROJECT AND OPEN WORKSPACE MODULES
+  const selectProjectAndOpen = useCallback(async (proj: IndustrialProject) => {
+    setActiveProject(proj);
+    setSaveStatus('saving');
+
+    try {
+      const [comps, conns, tags, rungs] = await Promise.all([
+        getProjectComponents(proj.id),
+        getProjectConnections(proj.id),
+        getProjectSharedTags(proj.id),
+        getProjectLadderRungs(proj.id),
+      ]);
+
+      if (comps.length > 0) {
+        setComponents(comps);
+        setSelectedComponentId(comps[0].id);
+        setSelectedComponentIds([comps[0].id]);
+      } else {
+        // Brand new project without elements
+        setComponents([]);
+        setSelectedComponentId(null);
+        setSelectedComponentIds([]);
+      }
+
+      setConnections(conns);
+      if (tags.length > 0) setSharedTags(tags);
+      if (rungs.length > 0) setLadderRungs(rungs);
+
+      setSaveStatus('saved');
+    } catch (err) {
+      console.error('Erro ao ler elementos do projeto no Supabase:', err);
+      setSaveStatus('dirty');
+    }
+
+    setActiveTab(proj.targetTab || 'unifilar');
+  }, [setActiveTab]);
+
+  // CREATE NEW REAL PROJECT IN SUPABASE
+  const createProject = useCallback(async (newProj: IndustrialProject): Promise<{ success: boolean; error?: string }> => {
+    if (!tenant?.id) {
+      return { success: false, error: 'Organização / Tenant não identificado' };
+    }
+
+    const res = await createSupabaseProject(tenant.id, newProj, user?.id);
+    if (res.success) {
+      setProjects(prev => [newProj, ...prev]);
+      setActiveProject(newProj);
+      // Auto-save initial components/connections/tags if present
+      await saveFullProjectSnapshot(newProj.id, tenant.id, {
+        components,
+        connections,
+        sharedTags,
+        ladderRungs,
+      });
+      return { success: true };
+    }
+    return { success: false, error: res.error };
+  }, [tenant, user, components, connections, sharedTags, ladderRungs]);
+
+  // DELETE REAL PROJECT IN SUPABASE
+  const deleteProject = useCallback(async (projId: string): Promise<{ success: boolean; error?: string }> => {
+    const res = await deleteSupabaseProject(projId);
+    if (res.success) {
+      setProjects(prev => prev.filter(p => p.id !== projId));
+      if (activeProject?.id === projId) {
+        setActiveProject(null);
+      }
+      return { success: true };
+    }
+    return { success: false, error: res.error };
+  }, [activeProject]);
 
   const updateComponent = useCallback((id: string, updates: Partial<ElectricalComponent>) => {
     pushSnapshot();
@@ -1251,6 +1459,16 @@ END_IF;
 
       downloadDxf,
       downloadPlcopenXml,
+      // Real Projects & Persistence
+      projects,
+      setProjects,
+      activeProject,
+      setActiveProject,
+      selectProjectAndOpen,
+      createProject,
+      deleteProject,
+      lastSavedAt,
+      // Authentication
       isAuthenticated,
       setIsAuthenticated,
       isSelectingTenant,
@@ -1260,6 +1478,8 @@ END_IF;
       openWorkspaceFromLanding,
       openLoginFromLanding,
       login,
+      loginWithCredentials,
+      loginWithSession,
       logout,
       selectTenantAndOpenWorkspace,
     }),
@@ -1334,12 +1554,20 @@ END_IF;
       isSimulationRunning,
       downloadDxf,
       downloadPlcopenXml,
+      projects,
+      activeProject,
+      selectProjectAndOpen,
+      createProject,
+      deleteProject,
+      lastSavedAt,
       isAuthenticated,
       isSelectingTenant,
       isViewingLanding,
       openWorkspaceFromLanding,
       openLoginFromLanding,
       login,
+      loginWithCredentials,
+      loginWithSession,
       logout,
       selectTenantAndOpenWorkspace,
     ]

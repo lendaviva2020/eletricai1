@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { PasswordRecoveryScreen } from '@/components/auth/PasswordRecoveryScreen';
+import { IndustrialSignUpScreen } from '@/components/auth/IndustrialSignUpScreen';
 import { DatabaseAuthService } from '@/lib/database-auth-service';
 import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
 import {
@@ -27,14 +28,18 @@ import {
   KeyRound,
   Database,
   CloudCheck,
+  UserPlus,
 } from 'lucide-react';
 
 export function IndustrialLoginScreen() {
-  const { login, tenant, setTenant, setIsViewingLanding } = useWorkspace();
+  const { loginWithCredentials, login, tenant, setTenant, setIsViewingLanding } = useWorkspace();
+
+  // Mode: LOGIN or SIGNUP
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
 
   // Form states
-  const [emailOrTag, setEmailOrTag] = useState('carlos.mendes@paulinia.ind.br');
-  const [password, setPassword] = useState('VoltAI#2026!Sec');
+  const [emailOrTag, setEmailOrTag] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);

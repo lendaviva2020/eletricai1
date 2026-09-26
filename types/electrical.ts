@@ -5,10 +5,15 @@ export type TenantRole = 'admin' | 'engineer' | 'member';
 export interface Tenant {
   id: string;
   name: string;
+  subname?: string;
   cnpj: string;
   location: string;
   plan: 'Industrial Pro' | 'Enterprise Multi-Plant' | 'Integrator OEM';
   currency: 'BRL';
+  voltage?: string;
+  tagsCount?: number;
+  membersCount?: number;
+  category?: 'enterprise' | 'client' | 'sandbox';
 }
 
 export interface UserProfile {
@@ -60,7 +65,15 @@ export type ComponentCategory =
   | 'CAPACITOR_BANK'    // Banco de Capacitores para correção de fator de potência
   | 'DISTRIBUTION_BOARD'// Quadro Terminal
   | 'PUSH_BUTTON'       // Botoeira / Botão de comando
-  | 'PILOT_LIGHT';      // Sinalizador / Lâmpada piloto
+  | 'PILOT_LIGHT'       // Sinalizador / Lâmpada piloto
+  | 'GENERATOR'         // Gerador de Emergência
+  | 'UPS'               // Nobreak Industrial
+  | 'PLC'               // CLP / Automação
+  | 'METER'             // Instrumentação e Medição
+  | 'GROUND'            // Aterramento e Barramento PE
+  | 'SWITCH'            // Chave Seccionadora / Emergência
+  | 'RELAY'             // Relé Auxiliar / Temporizador
+  | 'FEEDER';           // Ramal Alimentador
 
 export interface ElectricalPort {
   id: string;
@@ -151,6 +164,7 @@ export interface ElectricalConnection {
   waypoints?: Array<{ x: number; y: number }>;
   hasJunctionDot?: boolean;
   isCrossed?: boolean;
+  voltageDropPercent?: number;
   notes?: string;
 }
 
