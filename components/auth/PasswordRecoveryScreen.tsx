@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { SupabaseDataService } from '@/lib/supabase';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
 import {
   Zap,
   ArrowLeft,
@@ -32,7 +30,6 @@ export function PasswordRecoveryScreen({
   onBackToLogin,
   defaultEmail = 'carlos.mendes@paulinia.ind.br',
 }: PasswordRecoveryScreenProps) {
-  const { login } = useWorkspace();
 
   // Step state: 'request' | 'verify_and_reset' | 'completed'
   const [step, setStep] = useState<'request' | 'verify_and_reset' | 'completed'>('verify_and_reset');
@@ -109,7 +106,6 @@ export function PasswordRecoveryScreen({
     setIsResending(true);
     try {
       await SupabaseDataService.requestPasswordReset(email);
-      DatabaseAuthService.requestPasswordReset(email);
     } catch (e) {
       console.warn('Supabase resend notice:', e);
     } finally {
@@ -372,11 +368,11 @@ export function PasswordRecoveryScreen({
 
               <button
                 type="button"
-                onClick={() => login(email, 'admin')}
+                onClick={onBackToLogin}
                 className="mt-6 w-full bg-[#F59E0B] hover:bg-amber-400 text-[#0B0D10] font-black py-3 px-4 rounded-lg shadow-[0_0_22px_rgba(245,158,11,0.28)] flex items-center justify-center gap-2 text-sm tracking-wide transition-all uppercase cursor-pointer"
               >
                 <Lock className="h-4 w-4" />
-                <span>ACESSAR WORKSPACE AGORA</span>
+                <span>IR PARA LOGIN COM A NOVA SENHA</span>
               </button>
             </div>
           ) : (

@@ -27,7 +27,14 @@ import {
   Zap,
   Play,
   Pause,
+  Save,
+  Clock,
+  Activity,
+  Gauge,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
+import { UnifilarEngineeringEngine } from '@/lib/engineering/unifilar/unifilar-engine';
 
 function generateConnectionId(): string {
   return generateUniqueConnectionId();
@@ -161,6 +168,23 @@ export function UnifilarCanvas() {
 
   const selectedComponent = components.find(c => c.id === selectedComponentId) || null;
   const activePage = projectPages.find(p => p.pageNumber === activePageNumber) || projectPages[0];
+
+  // Dynamic Real-time Power Flow & NBR 5410 Simulation
+  const simulationResult = useMemo(() => {
+    return UnifilarEngineeringEngine.simulatePowerFlow(components, connections);
+  }, [components, connections]);
+
+  // Global Ctrl+S / Cmd+S keyboard shortcut to persist immediately to Supabase
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveProject();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveProject]);
 
   // Reactive Connectivity Validation (Orphan components & floating/unterminated wires)
   const connectivityStatus = useMemo(() => {
@@ -324,17 +348,24 @@ export function UnifilarCanvas() {
       const snappedX = snapToGrid ? Math.round(rawX / gridSize) * gridSize : rawX;
       const snappedY = snapToGrid ? Math.round(rawY / gridSize) * gridSize : rawY;
 
-      updateComponent(draggingCompId, {
-        x: Math.max(10, Math.round(snappedX)),
-        y: Math.max(10, Math.round(snappedY)),
-      });
+      // Movimento suave durante arrasto sem inflar o histórico de undo
+      updateComponent(
+        draggingCompId,
+        {
+          x: Math.max(10, Math.round(snappedX)),
+          y: Math.max(10, Math.round(snappedY)),
+        },
+        false
+      );
     } else if (isPanning) {
       setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
     }
   };
 
   const handleCanvasMouseUp = () => {
-    setDraggingCompId(null);
+    if (draggingCompId) {
+      setDraggingCompId(null);
+    }
     setIsPanning(false);
   };
 
@@ -674,27 +705,104 @@ export function UnifilarCanvas() {
             </div>
           )}
 
-          {/* Simulation & Flow Status HUD Indicator */}
-          <div className="absolute top-3 right-4 z-20 flex items-center gap-2 bg-[#11141A]/90 backdrop-blur border border-[#232833] rounded-lg px-3 py-1.5 shadow-lg text-xs font-mono select-none">
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${isSimulationRunning ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
-              <span className={isSimulationRunning ? 'text-emerald-300 font-bold' : 'text-amber-300 font-medium'}>
-                {isSimulationRunning ? 'FLUXO DE POTÊNCIA ATIVO' : 'SIMULAÇÃO PAUSADA'}
-              </span>
+          {/* Real-Time Engineering Telemetry HUD & Supabase Persistence Bar */}
+          <div className="absolute top-3 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+            {/* Left: Engineering Math Telemetry (NBR 5410 Engine) */}
+            <div className="flex items-center gap-2 bg-[#11141A]/95 backdrop-blur-md border border-[#232833] rounded-lg px-3 py-1.5 shadow-xl text-xs font-mono select-none pointer-events-auto">
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                <Zap className="h-3.5 w-3.5" />
+                <span className="text-[11px] uppercase tracking-wider text-slate-400">Potência:</span>
+                <span className="text-slate-100">{simulationResult.totalInstalledKw} kW</span>
+              </div>
+
+              <div className="h-3 w-px bg-[#232833]" />
+
+              <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                <Activity className="h-3.5 w-3.5" />
+                <span className="text-[11px] uppercase tracking-wider text-slate-400">Corrente Ib:</span>
+                <span className="text-slate-100">{simulationResult.totalOperatingCurrentA} A</span>
+              </div>
+
+              <div className="h-3 w-px bg-[#232833]" />
+
+              <div className="flex items-center gap-1.5 font-bold">
+                <Gauge className="h-3.5 w-3.5 text-blue-400" />
+                <span className="text-[11px] uppercase tracking-wider text-slate-400">ΔV Máx:</span>
+                <span className={simulationResult.maxVoltageDropPercent > 4.0 ? 'text-red-400' : 'text-emerald-400'}>
+                  {simulationResult.maxVoltageDropPercent.toFixed(2)}%
+                </span>
+                <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold border ${
+                  simulationResult.maxVoltageDropPercent > 4.0
+                    ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                }`}>
+                  {simulationResult.maxVoltageDropPercent > 4.0 ? 'NBR 5410 > 4%' : 'NBR 5410 OK'}
+                </span>
+              </div>
+
+              {simulationResult.criticalAlerts.length > 0 && (
+                <>
+                  <div className="h-3 w-px bg-[#232833]" />
+                  <div className="flex items-center gap-1 text-[11px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+                    <span>{simulationResult.criticalAlerts.length} Alertas NBR 5410</span>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="h-3 w-px bg-slate-700 mx-1" />
-            <button
-              onClick={() => setIsSimulationRunning(p => !p)}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-colors ${
-                isSimulationRunning
-                  ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40'
-                  : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
-              }`}
-              title={isSimulationRunning ? 'Pausar animação de fluxo e simulação' : 'Retomar simulação e animação de fluxo'}
-            >
-              {isSimulationRunning ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-              <span>{isSimulationRunning ? 'Pausar' : 'Simular'}</span>
-            </button>
+
+            {/* Right: Simulation Controls & Database Sync Status */}
+            <div className="flex items-center gap-2 bg-[#11141A]/95 backdrop-blur-md border border-[#232833] rounded-lg px-3 py-1.5 shadow-xl text-xs font-mono select-none pointer-events-auto">
+              {/* Supabase Persistence Indicator */}
+              <div className="flex items-center gap-1.5">
+                {saveStatus === 'saved' ? (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Supabase Sincronizado</span>
+                  </span>
+                ) : saveStatus === 'saving' ? (
+                  <span className="flex items-center gap-1 text-[11px] text-cyan-400 font-medium animate-pulse">
+                    <Clock className="h-3.5 w-3.5 animate-spin" />
+                    <span>Gravando no Banco...</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-400 font-medium">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Pendente (Auto-save)</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="h-3 w-px bg-[#232833]" />
+
+              {/* Manual Save Button (Ctrl+S) */}
+              <button
+                onClick={() => saveProject()}
+                disabled={saveStatus === 'saving'}
+                className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#1C212C] hover:bg-[#28303F] text-slate-200 border border-[#232833] flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                title="Salvar alterações no Supabase PostgreSQL (Ctrl+S)"
+              >
+                <Save className="h-3 w-3 text-amber-400" />
+                <span className="hidden md:inline">Salvar</span>
+                <span className="text-[9px] text-slate-500 font-mono">Ctrl+S</span>
+              </button>
+
+              <div className="h-3 w-px bg-[#232833]" />
+
+              {/* Flow Simulation Toggle */}
+              <button
+                onClick={() => setIsSimulationRunning(p => !p)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-colors ${
+                  isSimulationRunning
+                    ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40'
+                    : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
+                }`}
+                title={isSimulationRunning ? 'Pausar animação de fluxo e simulação' : 'Retomar simulação e animação de fluxo'}
+              >
+                {isSimulationRunning ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                <span>{isSimulationRunning ? 'Pausar' : 'Simular'}</span>
+              </button>
+            </div>
           </div>
 
           {/* SVG Vector Drawing Layer */}
@@ -907,10 +1015,16 @@ export function UnifilarCanvas() {
               // Connectivity check (Orphan component)
               const isOrphan = connectivityStatus.orphanComponents.some(o => o.id === comp.id);
 
+              // Dynamic real-time calculation state for this component
+              const nodeState = simulationResult.nodeStates.get(comp.id);
+              const liveIb = nodeState ? nodeState.operationalCurrentA : (comp.operationalCurrent || comp.nominalCurrent || 0);
+              const liveVDrop = nodeState ? nodeState.cumulativeVoltageDropPercent : (comp.voltageDropPercent || 1.1);
+              const isExcessiveDrop = Boolean(liveVDrop > 4.0);
+
               // Check if component has any validation issue
               const hasIssue = validationIssues.some(
                 i => i.componentId === comp.id || i.componentTag === comp.tag
-              ) || isOrphan;
+              ) || isOrphan || isExcessiveDrop;
               const compIssue = validationIssues.find(
                 i => i.componentId === comp.id || i.componentTag === comp.tag
               );
@@ -935,6 +1049,22 @@ export function UnifilarCanvas() {
                       stroke="#EF4444"
                       strokeWidth="2.5"
                       strokeDasharray="6,4"
+                      className="animate-pulse"
+                    />
+                  )}
+
+                  {/* Warning Halo for Voltage Drop > 4% */}
+                  {isExcessiveDrop && !isOrphan && (
+                    <rect
+                      x="-5"
+                      y="-5"
+                      width={comp.width + 10}
+                      height={comp.height + 10}
+                      rx="7"
+                      fill="none"
+                      stroke="#F59E0B"
+                      strokeWidth="2"
+                      strokeDasharray="5,4"
                       className="animate-pulse"
                     />
                   )}
@@ -1049,7 +1179,7 @@ export function UnifilarCanvas() {
                         {comp.name.length > 20 ? comp.name.substring(0, 18) + '...' : comp.name}
                       </text>
 
-                      {/* Electrical Values In / kW */}
+                      {/* Electrical Values In / Ib / kW */}
                       <text
                         x="10"
                         y="52"
@@ -1058,19 +1188,21 @@ export function UnifilarCanvas() {
                         fontFamily="monospace"
                       >
                         In: <tspan fill="#F59E0B" fontWeight="bold">{comp.nominalCurrent}A</tspan>
+                        {liveIb > 0 ? <tspan fill="#38BDF8"> ({liveIb.toFixed(1)}A)</tspan> : ''}
                         {comp.power ? ` | ${comp.power}kW` : ''}
                       </text>
 
-                      {/* Cable size badge */}
+                      {/* Cable size & dynamic Voltage Drop badge */}
                       {comp.cableCrossSection && (
                         <text
                           x="10"
                           y="65"
-                          fill="#06B6D4"
+                          fill={isExcessiveDrop ? '#EF4444' : '#06B6D4'}
                           fontSize="9"
                           fontFamily="monospace"
+                          fontWeight={isExcessiveDrop ? 'bold' : 'normal'}
                         >
-                          Cabo: {comp.cableCrossSection}mm² ({comp.voltageDropPercent || 1.1}% ΔV)
+                          Cabo: {comp.cableCrossSection}mm² ({liveVDrop.toFixed(1)}% ΔV{isExcessiveDrop ? ' ⚠️' : ''})
                         </text>
                       )}
 

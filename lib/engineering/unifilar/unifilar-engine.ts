@@ -151,7 +151,7 @@ export class UnifilarEngineeringEngine {
         const nominalV = targetComp.voltage || currentComp.voltage || 380;
 
         const branchVDrop = calculateVoltageDropPercent(targetIb, cableLength, cableSection, nominalV, pf);
-        const totalVDrop = current.cumulativeVDrop + branchVDrop;
+        const totalVDrop = current.cumulativeVDrop + branchVDrop.dropPercent;
 
         // Atualizar estado do nó jusante
         const downstreamList = nodeStates.get(current.componentId)?.downstreamComponentIds || [];

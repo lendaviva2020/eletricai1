@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { PasswordRecoveryScreen } from '@/components/auth/PasswordRecoveryScreen';
 import { IndustrialSignUpScreen } from '@/components/auth/IndustrialSignUpScreen';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
 import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
 import {
   Zap,
@@ -32,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export function IndustrialLoginScreen() {
-  const { loginWithCredentials, login, tenant, setTenant, setIsViewingLanding } = useWorkspace();
+  const { loginWithCredentials, tenant, setTenant, setIsViewingLanding } = useWorkspace();
 
   // Mode: LOGIN or SIGNUP
   const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
@@ -88,48 +87,17 @@ export function IndustrialLoginScreen() {
     setLoginError(null);
     setIsLoading(true);
 
-    try {
-      // Execute authentication via Supabase client / service
-      const result = await DatabaseAuthService.loginWithCredentialsAsync(emailOrTag, password);
-      setIsLoading(false);
+    const result = await loginWithCredentials(emailOrTag.trim().toLowerCase(), password);
+    setIsLoading(false);
 
-      if (result.success && result.user) {
-        login(result.user.email, result.user.role);
-      } else {
-        const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');
-        login(emailOrTag, isBeatriz ? 'engineer' : 'admin');
-      }
-    } catch {
-      setIsLoading(false);
-      // Fallback local login
-      const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');
-      login(emailOrTag, isBeatriz ? 'engineer' : 'admin');
+    if (!result.success) {
+      // SEM fallback: se a autenticação real falhou, o usuário fica na tela
+      // de login vendo o motivo. Não existe mais um caminho que loga "assim mesmo".
+      setLoginError(result.error ?? 'E-mail ou senha inválidos.');
+      return;
     }
-  };
-
-  const handleOAuthLogin = async (provider: 'google' | 'sso') => {
-    setIsLoading(true);
-    const targetEmail =
-      provider === 'google' ? 'eng.google@industria.com.br' : 'sso.corporativo@paulinia.ind.br';
-
-    try {
-      await DatabaseAuthService.loginWithCredentialsAsync(targetEmail, 'OAuthSSO#2026');
-      setIsLoading(false);
-      login(targetEmail, 'admin');
-    } catch {
-      setIsLoading(false);
-      login(targetEmail, 'admin');
-    }
-  };
-
-  const handleSelectQuickDemo = (profile: 'carlos' | 'beatriz') => {
-    if (profile === 'carlos') {
-      setEmailOrTag('carlos.mendes@paulinia.ind.br');
-      setPassword('AdminVolt#2026');
-    } else {
-      setEmailOrTag('beatriz.lima@usina.com.br');
-      setPassword('AutomaPLC#2026');
-    }
+    // Sucesso: loginWithCredentials já carregou perfil/tenant/projetos reais
+    // e setou isAuthenticated=true dentro do WorkspaceContext.
   };
 
   const handleSubmitDemoRequest = async (e: React.FormEvent) => {
@@ -144,13 +112,6 @@ export function IndustrialLoginScreen() {
         company: demoCompany,
         phone: demoCrea,
         plant_type: demoPlantType,
-      });
-      DatabaseAuthService.registerEnterpriseLead({
-        name: demoEngineer,
-        email: demoEmail,
-        company: demoCompany,
-        phone: demoCrea,
-        plantType: demoPlantType,
       });
     } catch (e) {
       console.warn('Lead dispatch note:', e);
@@ -350,48 +311,6 @@ export function IndustrialLoginScreen() {
             </p>
           </div>
 
-          {/* QUICK DEMO PROFILES (1-CLICK TEST) */}
-          <div className="mb-6 p-3 rounded-xl bg-[#11141A] border border-[#232833]">
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-2">
-              <span className="flex items-center gap-1 text-amber-400 font-semibold">
-                <KeyRound className="h-3 w-3" />
-                Preenchimento Rápido (Demo):
-              </span>
-              <span className="text-[10px] text-slate-500">Clique para testar</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleSelectQuickDemo('carlos')}
-                className={`px-2.5 py-1.5 rounded text-left transition-all border text-xs font-mono flex flex-col ${
-                  emailOrTag.includes('carlos')
-                    ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
-                    : 'bg-[#161A22] border-[#232833] text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                <span className="font-bold flex items-center gap-1">
-                  Eng. Carlos Mendes
-                </span>
-                <span className="text-[10px] text-slate-400">Admin (CREA-SP)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectQuickDemo('beatriz')}
-                className={`px-2.5 py-1.5 rounded text-left transition-all border text-xs font-mono flex flex-col ${
-                  emailOrTag.includes('beatriz')
-                    ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-300'
-                    : 'bg-[#161A22] border-[#232833] text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                <span className="font-bold flex items-center gap-1">
-                  Engª. Beatriz Lima
-                </span>
-                <span className="text-[10px] text-slate-400">Automação / CLP</span>
-              </button>
-            </div>
-          </div>
-
           {/* LOGIN FORM */}
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             {loginError && (
@@ -507,18 +426,22 @@ export function IndustrialLoginScreen() {
 
           {/* OAUTH SSO ALTERNATIVES */}
           <div className="mt-6 pt-5 border-t border-[#232833]">
-            <span className="block text-center text-[10px] uppercase font-mono text-slate-400 mb-3 tracking-wider">
-              Ou autenticar com credenciais corporativas
+            <span className="block text-center text-[10px] uppercase font-mono text-slate-400 mb-1 tracking-wider">
+              Autenticação Corporativa SSO
+            </span>
+            <span className="block text-center text-[10px] text-slate-500 mb-3">
+              Em breve — configure um provedor em Authentication → Providers
             </span>
 
             <div className="grid grid-cols-2 gap-2.5">
               {/* Google Workspace Button */}
               <button
                 type="button"
-                onClick={() => handleOAuthLogin('google')}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#1C212C] border border-[#232833] hover:border-slate-500 hover:bg-[#232833] text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                disabled
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#141720] border border-[#232833] text-xs font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                title="Em breve — configure um provedor no Supabase"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 opacity-50" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -542,10 +465,11 @@ export function IndustrialLoginScreen() {
               {/* Enterprise SSO / GitHub Button */}
               <button
                 type="button"
-                onClick={() => handleOAuthLogin('sso')}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#1C212C] border border-[#232833] hover:border-slate-500 hover:bg-[#232833] text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                disabled
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#141720] border border-[#232833] text-xs font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                title="Em breve — configure um provedor no Supabase"
               >
-                <Building2 className="h-4 w-4 text-cyan-400" />
+                <Building2 className="h-4 w-4 text-slate-500" />
                 <span>SSO Corporativo</span>
               </button>
             </div>
@@ -603,12 +527,11 @@ export function IndustrialLoginScreen() {
                   onClick={() => {
                     setRequestDemoOpen(false);
                     setDemoSubmitted(false);
-                    // Log in as Carlos for immediate testing
-                    login('carlos.mendes@paulinia.ind.br', 'admin');
+                    setAuthMode('SIGNUP');
                   }}
                   className="mt-5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-[#0B0D10] text-xs font-bold rounded-lg"
                 >
-                  Explorar Workspace Imediatamente (Modo Avaliação)
+                  Criar Conta e Acessar Workspace
                 </button>
               </div>
             ) : (

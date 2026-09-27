@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { Tenant, TenantRole } from '@/types/electrical';
 import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
 import {
   Zap,
   Building2,
@@ -253,17 +252,6 @@ export function TenantSelectorScreen() {
         voltage: newVoltage,
         tags_count: 48,
         members_count: 1,
-        category: 'enterprise',
-      });
-      DatabaseAuthService.addTenant({
-        name: newCard.name,
-        subname: newCard.subname,
-        cnpj: newCard.cnpj,
-        location: newCard.location,
-        plan: 'Enterprise Multi-Plant',
-        voltage: newVoltage,
-        tagsCount: 48,
-        membersCount: 1,
         category: 'enterprise',
       });
     } catch (err) {
