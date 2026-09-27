@@ -824,6 +824,63 @@ export interface Database {
           }
         ];
       };
+      password_resets: {
+        Row: {
+          id: string;
+          email: string;
+          token: string;
+          expires_at: string;
+          used: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          token: string;
+          expires_at: string;
+          used?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          token?: string;
+          expires_at?: string;
+          used?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      enterprise_leads: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          company: string;
+          phone: string | null;
+          plant_type: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          email: string;
+          company: string;
+          phone?: string | null;
+          plant_type?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          email?: string;
+          company?: string;
+          phone?: string | null;
+          plant_type?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

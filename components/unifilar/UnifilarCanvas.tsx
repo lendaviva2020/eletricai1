@@ -753,12 +753,12 @@ export function UnifilarCanvas() {
 
             {/* Right: Simulation Controls & Database Sync Status */}
             <div className="flex items-center gap-2 bg-[#11141A]/95 backdrop-blur-md border border-[#232833] rounded-lg px-3 py-1.5 shadow-xl text-xs font-mono select-none pointer-events-auto">
-              {/* Supabase Persistence Indicator */}
+              {/* Cloud Persistence Indicator */}
               <div className="flex items-center gap-1.5">
                 {saveStatus === 'saved' ? (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Supabase Sincronizado</span>
+                    <span className="hidden sm:inline">Sincronizado na Nuvem</span>
                   </span>
                 ) : saveStatus === 'saving' ? (
                   <span className="flex items-center gap-1 text-[11px] text-cyan-400 font-medium animate-pulse">
@@ -780,7 +780,7 @@ export function UnifilarCanvas() {
                 onClick={() => saveProject()}
                 disabled={saveStatus === 'saving'}
                 className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#1C212C] hover:bg-[#28303F] text-slate-200 border border-[#232833] flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
-                title="Salvar alterações no Supabase PostgreSQL (Ctrl+S)"
+                title="Salvar alterações na nuvem (Ctrl+S)"
               >
                 <Save className="h-3 w-3 text-amber-400" />
                 <span className="hidden md:inline">Salvar</span>

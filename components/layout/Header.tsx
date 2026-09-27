@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useWorkspace, WhatIfScenario } from '@/components/shared/WorkspaceContext';
 import { useSettings } from '@/components/shared/SettingsContext';
 import { ScreenNavigationDropdown } from '@/components/layout/ScreenNavigationDropdown';
+import { ElectricalAppIcon } from '@/components/shared/ElectricalAppIcon';
 import { TenantRole } from '@/types/electrical';
 import {
   Zap,
@@ -79,9 +80,7 @@ export function Header() {
         {/* Left: Brand & Project */}
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <div className="h-8 w-8 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)] shrink-0">
-              <Zap className="h-4 w-4 fill-amber-400" />
-            </div>
+            <ElectricalAppIcon size="md" withGlow />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-sm sm:text-base tracking-wider text-slate-100 font-sans">
