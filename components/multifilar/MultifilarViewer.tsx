@@ -1,20 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { Split, Zap, AlertTriangle, Shield, CheckCircle2, Sliders } from 'lucide-react';
+import { UnifilarEngineeringEngine } from '@/lib/engineering/unifilar/unifilar-engine';
+import { MultifilarSchematicRouter, MultifilarSchematicData, PhaseConductor } from '@/lib/engineering/multifilar/schematic-router';
 
 export function MultifilarViewer() {
-  const { components, sharedTags, toggleBreakerState } = useWorkspace();
-  const [selectedCircuit, setSelectedCircuit] = useState<'cct_comp' | 'cct_exh' | 'cct_cmd'>('cct_comp');
+  const { components, connections, sharedTags, ladderRungs, toggleBreakerState } = useWorkspace();
 
-  // Find compressor component & tags
-  const compBreaker = components.find(c => c.tag === 'Q02_COMPRESSOR');
-  const compContactor = components.find(c => c.tag === 'KM01_COMPRESSOR');
-  const compThermal = components.find(c => c.tag === 'FT01_TERMIC_COMP');
-  const compMotor = components.find(c => c.tag === 'MTR01_COMPRESSOR');
+  const simulationResult = useMemo(
+    () => UnifilarEngineeringEngine.simulatePowerFlow(components, connections),
+    [components, connections]
+  );
 
-  const isCompEnergized = compBreaker?.isEnergized && compContactor?.isEnergized;
+  const schematicData = useMemo(
+    () => MultifilarSchematicRouter.generateFullSchematic(
+      components,
+      connections,
+      ladderRungs,
+      sharedTags,
+      simulationResult
+    ),
+    [components, connections, ladderRungs, sharedTags, simulationResult]
+  );
+
+  const [selectedCircuit, setSelectedCircuit] = useState<string>('all');
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden">
@@ -42,35 +53,40 @@ export function MultifilarViewer() {
         {/* Circuit Selector Buttons */}
         <div className="flex items-center gap-1 bg-[#161A22] border border-[#232833] p-1 rounded overflow-x-auto max-w-full">
           <button
-            onClick={() => setSelectedCircuit('cct_comp')}
+            onClick={() => setSelectedCircuit('all')}
             className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
-              selectedCircuit === 'cct_comp'
+              selectedCircuit === 'all'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            CCT 01 (Compressor 30cv)
+            Todos Circuitos
           </button>
-          <button
-            onClick={() => setSelectedCircuit('cct_exh')}
-            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
-              selectedCircuit === 'cct_exh'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            CCT 02 (Exaustor VFD 10cv)
-          </button>
-          <button
-            onClick={() => setSelectedCircuit('cct_cmd')}
-            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
-              selectedCircuit === 'cct_cmd'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Circuito de Comando 24VDC
-          </button>
+          {schematicData.derivations.map((der, idx) => (
+            <button
+              key={der.id}
+              onClick={() => setSelectedCircuit(der.id)}
+              className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
+                selectedCircuit === der.id
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {der.componentTag} ({der.cableSpec.sectionMm2}mm²)
+            </button>
+          ))}
+          {schematicData.commandCircuits.length > 0 && (
+            <button
+              onClick={() => setSelectedCircuit('command')}
+              className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
+                selectedCircuit === 'command'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Circuito Comando 24VDC
+            </button>
+          )}
         </div>
       </div>
 
@@ -114,126 +130,256 @@ export function MultifilarViewer() {
           {/* SVG Diagram Canvas */}
           <div className="flex-1 flex items-center justify-center min-h-[500px]">
             <svg viewBox="0 0 750 480" className="w-full max-w-4xl h-auto select-none">
-              {/* Busbars L1, L2, L3, PE at Top */}
+              {/* Busbars L1, L2, L3, N, PE at Top */}
               <g id="busbars">
-                {/* L1 Bus */}
-                <line x1="50" y1="40" x2="700" y2="40" stroke="#F59E0B" strokeWidth="4" />
-                <text x="20" y="44" fill="#F59E0B" fontSize="12" fontFamily="monospace" fontWeight="bold">L1</text>
-
-                {/* L2 Bus */}
-                <line x1="50" y1="65" x2="700" y2="65" stroke="#94A3B8" strokeWidth="4" />
-                <text x="20" y="69" fill="#94A3B8" fontSize="12" fontFamily="monospace" fontWeight="bold">L2</text>
-
-                {/* L3 Bus */}
-                <line x1="50" y1="90" x2="700" y2="90" stroke="#CBD5E1" strokeWidth="4" />
-                <text x="20" y="94" fill="#CBD5E1" fontSize="12" fontFamily="monospace" fontWeight="bold">L3</text>
-
-                {/* PE Ground Bus */}
-                <line x1="50" y1="115" x2="700" y2="115" stroke="#10B981" strokeWidth="3" strokeDasharray="6,4" />
-                <text x="20" y="119" fill="#10B981" fontSize="12" fontFamily="monospace" fontWeight="bold">PE</text>
+                {Array.from(schematicData.busbarLayout.yPositions.entries()).map(([phase, y]) => (
+                  <g key={phase}>
+                    <line
+                      x1={schematicData.busbarLayout.xStart}
+                      y1={y}
+                      x2={schematicData.busbarLayout.xEnd}
+                      y2={y}
+                      stroke={MultifilarSchematicRouter.getPhaseColor(phase as PhaseConductor)}
+                      strokeWidth={phase === 'PE' ? 3 : 4}
+                      strokeDasharray={phase === 'PE' ? '6,4' : undefined}
+                    />
+                    <text
+                      x={schematicData.busbarLayout.xStart - 30}
+                      y={y + 4}
+                      fill={MultifilarSchematicRouter.getPhaseColor(phase as PhaseConductor)}
+                      fontSize="12"
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                    >
+                      {phase}
+                    </text>
+                  </g>
+                ))}
               </g>
 
-              {/* Feeders dropping down to Disjuntor Q02 */}
-              <g id="feeder_lines">
-                <line x1="180" y1="40" x2="180" y2="170" stroke={compBreaker?.isEnergized ? '#F59E0B' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="220" y1="65" x2="220" y2="170" stroke={compBreaker?.isEnergized ? '#94A3B8' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="260" y1="90" x2="260" y2="170" stroke={compBreaker?.isEnergized ? '#CBD5E1' : '#EF4444'} strokeWidth="2.5" />
-                {/* PE runs straight to motor frame */}
-                <line x1="300" y1="115" x2="300" y2="440" stroke="#10B981" strokeWidth="2" strokeDasharray="6,3" />
-              </g>
+              {/* Power Derivations */}
+              {schematicData.derivations
+                .filter(der => selectedCircuit === 'all' || selectedCircuit === der.id)
+                .map((der, derIdx) => {
+                  const comp = components.find(c => c.id === der.componentId);
+                  const isEnergized = simulationResult.energizedComponentIds.has(der.componentId);
+                  const nodeState = simulationResult.nodeStates.get(der.componentId);
+                  
+                  return (
+                    <g key={der.id} id={`derivation_${der.componentId}`}>
+                      {/* Vertical drops from busbars to breaker */}
+                      {der.phases.map(phase => {
+                        const tapPoint = der.tapPoints.get(phase);
+                        if (!tapPoint) return null;
+                        const targetY = derIdx * 120 + 170;
+                        const pathD = `M ${tapPoint.x} ${tapPoint.y} L ${tapPoint.x} ${targetY}`;
+                        return (
+                          <path
+                            key={phase}
+                            d={pathD}
+                            fill="none"
+                            stroke={isEnergized ? MultifilarSchematicRouter.getPhaseColor(phase as PhaseConductor) : '#EF4444'}
+                            strokeWidth={2.5}
+                            strokeLinecap="round"
+                          />
+                        );
+                      })}
+                      
+                      {/* Component representation - simplified */}
+                      {comp && (
+                        <g transform={`translate(${comp.x}, ${comp.y})`}>
+                          <rect
+                            x="0"
+                            y="0"
+                            width={comp.width}
+                            height={comp.height}
+                            rx="3"
+                            fill="#161A22"
+                            stroke="#232833"
+                            strokeWidth="1.5"
+                          />
+                          <text
+                            x="10"
+                            y="20"
+                            fill="#F8FAFC"
+                            fontSize="11"
+                            fontFamily="monospace"
+                            fontWeight="bold"
+                          >
+                            {comp.tag}
+                          </text>
+                          <text
+                            x="10"
+                            y="36"
+                            fill="#94A3B8"
+                            fontSize="9"
+                            fontFamily="monospace"
+                          >
+                            In={comp.nominalCurrent}A | {comp.cableCrossSection}mm²
+                          </text>
+                          <text
+                            x="10"
+                            y="48"
+                            fill={isEnergized ? '#10B981' : '#EF4444'}
+                            fontSize="9"
+                            fontFamily="monospace"
+                          >
+                            {isEnergized ? '● ENERGIZADO' : '○ DESENERGIZADO'}
+                          </text>
+                          {nodeState && (
+                            <text
+                              x="10"
+                              y="58"
+                              fill="#06B6D4"
+                              fontSize="8"
+                              fontFamily="monospace"
+                            >
+                              ΔV: {nodeState.cumulativeVoltageDropPercent.toFixed(2)}% | Ib: {nodeState.operationalCurrentA.toFixed(1)}A
+                            </text>
+                          )}
+                        </g>
+                      )}
+                    </g>
+                  );
+                })}
+              
+              {/* Motor Terminal Boxes with PE */}
+              {schematicData.motorTerminalBoxes.map(mt => (
+                <g key={mt.componentId} transform={`translate(${mt.terminalBox.x}, ${mt.terminalBox.y})`}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={mt.terminalBox.width}
+                    height={mt.terminalBox.height}
+                    rx="3"
+                    fill="#0D1017"
+                    stroke="#10B981"
+                    strokeWidth="1.5"
+                    strokeDasharray="4,2"
+                  />
+                  <text x="5" y="14" fill="#10B981" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                    Caixa de Bornes - {mt.tag}
+                  </text>
+                  {Array.from(mt.terminals.entries()).map(([termId, term], idx) => (
+                    <g key={termId} transform={`translate(${term.x - mt.terminalBox.x}, ${term.y - mt.terminalBox.y})`}>
+                      <circle
+                        cx="0"
+                        cy="0"
+                        r="5"
+                        fill="#10B981"
+                        stroke="#FFFFFF"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="12"
+                        y="4"
+                        fill="#E2E8F0"
+                        fontSize="9"
+                        fontFamily="monospace"
+                      >
+                        {termId} ({MultifilarSchematicRouter.getPhaseLabel(term.phase)})
+                      </text>
+                    </g>
+                  ))}
+                </g>
+              ))}
 
-              {/* Component 1: Disjuntor Motor Q02 */}
-              <g id="disjuntor_q02" transform="translate(150, 170)">
-                <rect x="0" y="0" width="140" height="55" rx="3" fill="#161A22" stroke="#232833" strokeWidth="1.5" />
-                <text x="10" y="20" fill="#F8FAFC" fontSize="11" fontFamily="monospace" fontWeight="bold">Q02 (DWA160-63)</text>
-                <text x="10" y="36" fill="#94A3B8" fontSize="9" fontFamily="monospace">In=63A | Icu=25kA</text>
-                <text x="10" y="48" fill={compBreaker?.isEnergized ? '#10B981' : '#EF4444'} fontSize="9" fontFamily="monospace">
-                  {compBreaker?.isEnergized ? '● FECHADO' : '○ TRIP/ABERTO'}
-                </text>
+              {/* Command Circuit Area */}
+              {selectedCircuit === 'command' || selectedCircuit === 'all' ? (
+                <g id="command_preview" transform={`translate(${MultifilarSchematicRouter.COMMAND_AREA_X}, ${MultifilarSchematicRouter.COMMAND_AREA_Y})`}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width="300"
+                    height="280"
+                    rx="4"
+                    fill="#0D1017"
+                    stroke="#232833"
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x="15"
+                    y="25"
+                    fill="#06B6D4"
+                    fontSize="11"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                  >
+                    CIRCUITO DE COMANDO 24VDC
+                  </text>
+                  
+                  {schematicData.commandCircuits.map(cmd => (
+                    <g key={cmd.id}>
+                      {/* +24V Rail */}
+                      <line
+                        x1="20"
+                        y1={cmd.rails.positive}
+                        x2="280"
+                        y2={cmd.rails.positive}
+                        stroke="#EF4444"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x="240"
+                        y={cmd.rails.positive - 5}
+                        fill="#EF4444"
+                        fontSize="9"
+                        fontFamily="monospace"
+                      >
+                        +24VDC
+                      </text>
 
-                {/* Internal breaker contact symbols */}
-                <circle cx="30" cy="5" r="2.5" fill="#F59E0B" />
-                <circle cx="70" cy="5" r="2.5" fill="#94A3B8" />
-                <circle cx="110" cy="5" r="2.5" fill="#CBD5E1" />
-              </g>
+                      {cmd.rungs.map((rung, rungIdx) => (
+                        <g key={rung.id} transform={`translate(0, ${rungIdx * 35 + 60})`}>
+                          {rung.contacts.map((contact, contactIdx) => (
+                            <text
+                              key={contact.id}
+                              x={25 + contactIdx * 60}
+                              y="15"
+                              fill={rung.isEnergized ? '#10B981' : '#E2E8F0'}
+                              fontSize="9"
+                              fontFamily="monospace"
+                            >
+                              {contact.type} {contact.tagName} ({contact.address})
+                            </text>
+                          ))}
+                          {rung.coil && (
+                            <text
+                              x="240"
+                              y="15"
+                              fill={rung.coil.isEnergized ? '#10B981' : '#64748B'}
+                              fontSize="9"
+                              fontFamily="monospace"
+                              fontWeight={rung.coil.isEnergized ? 'bold' : 'normal'}
+                            >
+                              {rung.coil.isEnergized ? '●' : '○'} {rung.coil.tagName} ({rung.coil.address})
+                            </text>
+                          )}
+                        </g>
+                      ))}
 
-              {/* Lines from Breaker to Contactor KM01 */}
-              <g id="breaker_to_contactor">
-                <line x1="180" y1="225" x2="180" y2="265" stroke={isCompEnergized ? '#F59E0B' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="220" y1="225" x2="220" y2="265" stroke={isCompEnergized ? '#94A3B8' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="260" y1="225" x2="260" y2="265" stroke={isCompEnergized ? '#CBD5E1' : '#EF4444'} strokeWidth="2.5" />
-              </g>
-
-              {/* Component 2: Contator KM01 */}
-              <g id="contator_km01" transform="translate(150, 265)">
-                <rect x="0" y="0" width="140" height="50" rx="3" fill="#161A22" stroke="#232833" strokeWidth="1.5" />
-                <text x="10" y="18" fill="#F8FAFC" fontSize="11" fontFamily="monospace" fontWeight="bold">KM01 (CWB50)</text>
-                <text x="10" y="32" fill="#94A3B8" fontSize="9" fontFamily="monospace">AC-3 50A | Bobina 24VDC</text>
-                <text x="10" y="44" fill={compContactor?.isEnergized ? '#10B981' : '#64748B'} fontSize="9" fontFamily="monospace">
-                  Bobina: {compContactor?.isEnergized ? 'ENERGIZADA (A1-A2)' : 'DESLIGADA'}
-                </text>
-              </g>
-
-              {/* Lines from Contactor to Thermal Relay FT01 */}
-              <g id="contactor_to_thermal">
-                <line x1="180" y1="315" x2="180" y2="350" stroke={isCompEnergized ? '#F59E0B' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="220" y1="315" x2="220" y2="350" stroke={isCompEnergized ? '#94A3B8' : '#EF4444'} strokeWidth="2.5" />
-                <line x1="260" y1="315" x2="260" y2="350" stroke={isCompEnergized ? '#CBD5E1' : '#EF4444'} strokeWidth="2.5" />
-              </g>
-
-              {/* Component 3: Relé Térmico FT01 */}
-              <g id="thermal_relay_ft01" transform="translate(150, 350)">
-                <rect x="0" y="0" width="140" height="45" rx="3" fill="#161A22" stroke="#232833" strokeWidth="1.5" />
-                <text x="10" y="18" fill="#F8FAFC" fontSize="11" fontFamily="monospace" fontWeight="bold">FT01 (RW67)</text>
-                <text x="10" y="32" fill="#94A3B8" fontSize="9" fontFamily="monospace">Ajuste: 42.0A | Classe 10</text>
-              </g>
-
-              {/* Lines from Thermal Relay to Motor W22 */}
-              <g id="thermal_to_motor">
-                <line x1="180" y1="395" x2="180" y2="430" stroke={isCompEnergized ? '#F59E0B' : '#64748B'} strokeWidth="2.5" />
-                <line x1="220" y1="395" x2="220" y2="430" stroke={isCompEnergized ? '#94A3B8' : '#64748B'} strokeWidth="2.5" />
-                <line x1="260" y1="395" x2="260" y2="430" stroke={isCompEnergized ? '#CBD5E1' : '#64748B'} strokeWidth="2.5" />
-              </g>
-
-              {/* Component 4: Motor 3-Phase MTR01 */}
-              <g id="motor_mtr01" transform="translate(150, 430)">
-                <circle cx="70" cy="35" r="32" fill="#161A22" stroke={isCompEnergized ? '#F59E0B' : '#334155'} strokeWidth="2" />
-                <text x="56" y="32" fill="#F8FAFC" fontSize="12" fontFamily="monospace" fontWeight="bold">M 3~</text>
-                <text x="52" y="48" fill="#F59E0B" fontSize="9" fontFamily="monospace" fontWeight="bold">30 CV</text>
-
-                {/* PE Connection to Motor Shell */}
-                <line x1="300" y1="440" x2="220" y2="450" stroke="#10B981" strokeWidth="2" strokeDasharray="4,2" />
-                <text x="230" y="475" fill="#10B981" fontSize="9" fontFamily="monospace">PE (Carcaça Aterrada)</text>
-              </g>
-
-              {/* Command Circuit Box on Right */}
-              <g id="command_preview" transform="translate(420, 160)">
-                <rect x="0" y="0" width="300" height="280" rx="4" fill="#0D1017" stroke="#232833" strokeWidth="1.5" />
-                <text x="15" y="25" fill="#06B6D4" fontSize="11" fontFamily="monospace" fontWeight="bold">
-                  CIRCUITO DE COMANDO 24VDC (INTERTRAVAMENTO)
-                </text>
-
-                {/* +24V Rail */}
-                <line x1="20" y1="50" x2="280" y2="50" stroke="#EF4444" strokeWidth="2" />
-                <text x="240" y="45" fill="#EF4444" fontSize="9" fontFamily="monospace">+24VDC</text>
-
-                {/* Emergency Mushroom Button Symbol */}
-                <text x="25" y="80" fill="#E2E8F0" fontSize="10" fontFamily="monospace">1. Botão Emergência (%I0.0): NF [ OK ]</text>
-                {/* Thermal Contact 95-96 */}
-                <text x="25" y="115" fill="#E2E8F0" fontSize="10" fontFamily="monospace">2. Contato FT01 95-96 (%I0.1): NF [ OK ]</text>
-                {/* Stop Pushbutton */}
-                <text x="25" y="150" fill="#E2E8F0" fontSize="10" fontFamily="monospace">3. Botoeira Desliga (%I0.3): NF [ OK ]</text>
-                {/* Start Pushbutton & Seal Contact */}
-                <text x="25" y="185" fill="#E2E8F0" fontSize="10" fontFamily="monospace">4. Botoeira Liga (%I0.2) // Selo KM01</text>
-                {/* Coil KM01 */}
-                <text x="25" y="220" fill="#10B981" fontSize="10" fontFamily="monospace" fontWeight="bold">
-                  5. Bobina KM01 (%Q0.2) &rarr; {compContactor?.isEnergized ? 'ACIONADA' : 'EM ESPERA'}
-                </text>
-
-                {/* 0V Rail */}
-                <line x1="20" y1="255" x2="280" y2="255" stroke="#3B82F6" strokeWidth="2" />
-                <text x="250" y="250" fill="#3B82F6" fontSize="9" fontFamily="monospace">0VDC</text>
-              </g>
+                      {/* 0V Rail */}
+                      <line
+                        x1="20"
+                        y1={cmd.rails.negative}
+                        x2="280"
+                        y2={cmd.rails.negative}
+                        stroke="#3B82F6"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x="250"
+                        y={cmd.rails.negative - 5}
+                        fill="#3B82F6"
+                        fontSize="9"
+                        fontFamily="monospace"
+                      >
+                        0VDC
+                      </text>
+                    </g>
+                  ))}
+                </g>
+              ) : null}
             </svg>
           </div>
         </div>
@@ -280,16 +426,28 @@ export function MultifilarViewer() {
           {/* Quick Breaker Switch Test */}
           <div className="mt-auto pt-4 border-t border-[#232833] flex flex-col gap-2">
             <span className="text-[10px] uppercase text-slate-400 font-bold">Teste de Interrupção</span>
-            <button
-              onClick={() => toggleBreakerState('Q02_COMPRESSOR')}
-              className={`w-full py-2 rounded text-xs font-bold transition-colors ${
-                compBreaker?.isEnergized
-                  ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
-                  : 'bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30'
-              }`}
-            >
-              {compBreaker?.isEnergized ? 'SIMULAR DISPARO DISJUNTOR Q02' : 'REARMAR DISJUNTOR Q02'}
-            </button>
+            {schematicData.derivations.length > 0 && (
+              <>
+                {schematicData.derivations.map(der => {
+                  const comp = components.find(c => c.id === der.componentId);
+                  if (!comp) return null;
+                  const isEnergized = simulationResult.energizedComponentIds.has(der.componentId);
+                  return (
+                    <button
+                      key={der.id}
+                      onClick={() => toggleBreakerState(der.componentId)}
+                      className={`w-full py-2 rounded text-xs font-bold transition-colors ${
+                        isEnergized
+                          ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+                          : 'bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30'
+                      }`}
+                    >
+                      {isEnergized ? `SIMULAR DISPARO ${comp.tag}` : `REARMAR ${comp.tag}`}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
       </div>

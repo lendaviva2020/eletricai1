@@ -2,17 +2,16 @@
 
 import React, { useState } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
+import { AlarmBanner, type ScadaAlarm } from '@/components/scada/AlarmBanner';
 import {
   Tv,
   Play,
   Terminal,
-  AlertTriangle,
   RotateCw,
   Gauge,
   Activity,
   ShieldAlert,
   Flame,
-  CheckCircle2,
 } from 'lucide-react';
 
 export function ScadaMimic() {
@@ -42,6 +41,27 @@ export function ScadaMimic() {
   const pressureVal = Number(pressTag?.currentValue || 7.4);
   const tempVal = Number(tempTag?.currentValue || 64.8);
   const currVal = Number(currTag?.currentValue || 41.6);
+
+  // Limites do supervisório: 80 °C (mancal) e 50 A (corrente de fase, In = 42 A).
+  const scadaAlarms: ScadaAlarm[] = [];
+  if (tempVal > 80) {
+    scadaAlarms.push({
+      id: 'ALM_TEMP_MANCAL_MTR01',
+      severity: 'CRITICAL',
+      title: 'Temperatura de mancal',
+      message: `Temperatura de Mancal MTR01 acima do limite crítico: ${tempVal}°C!`,
+      sourceTag: 'TEMP_MANCAL_COMP',
+    });
+  }
+  if (currVal > 50) {
+    scadaAlarms.push({
+      id: 'ALM_SOBRECORRENTE_FASE_R',
+      severity: 'CRITICAL',
+      title: 'Sobrecorrente de fase',
+      message: `Corrente Fase R em ${currVal}A (In=42A)!`,
+      sourceTag: 'CORRENTE_FASE_R',
+    });
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden">
@@ -100,29 +120,7 @@ export function ScadaMimic() {
           /* Mímico Gráfico Industrial */
           <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
             {/* Alarm Banner */}
-            <div className={`p-3 rounded border flex items-center justify-between text-xs font-mono transition-colors ${
-              tempVal > 80 || currVal > 50
-                ? 'bg-red-950/40 border-red-500 text-red-300'
-                : 'bg-[#161A22] border-[#232833] text-slate-300'
-            }`}>
-              <div className="flex items-center gap-2">
-                {tempVal > 80 || currVal > 50 ? (
-                  <AlertTriangle className="h-4 w-4 text-red-400 animate-bounce" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                )}
-                <span>
-                  {tempVal > 80
-                    ? `[ALARME ALTO] Temperatura de Mancal MTR01 acima do limite crítico: ${tempVal}°C!`
-                    : currVal > 50
-                    ? `[ALARME SOBRECORRENTE] Corrente Fase R em ${currVal}A (In=42A)!`
-                    : 'Sistema operando dentro dos limites nominais da ABNT NBR 5410.'}
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500">
-                SCADA NODE: OPCUA://192.168.10.20:4840
-              </span>
-            </div>
+            <AlarmBanner alarms={scadaAlarms} endpoint="SCADA NODE: OPCUA://192.168.10.20:4840" />
 
             {/* Industrial Mimic Widgets Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

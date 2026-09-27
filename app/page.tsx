@@ -14,6 +14,7 @@ import { PlcRackConfig } from '@/components/plc/PlcRackConfig';
 import { ScadaMimic } from '@/components/scada/ScadaMimic';
 import { DigitalTwin3D } from '@/components/digital-twin/DigitalTwin3D';
 import { BomMemorial } from '@/components/bom/BomMemorial';
+import { TechnicalKnowledgeCenter } from '@/components/knowledge/TechnicalKnowledgeCenter';
 import { AiCopilotView } from '@/components/ai/AiCopilotView';
 import { IndustrialLoginScreen } from '@/components/auth/IndustrialLoginScreen';
 import { TenantSelectorScreen } from '@/components/tenant/TenantSelectorScreen';
@@ -102,6 +103,11 @@ function WorkspaceContent() {
         {activeTab === 'scada' && <ScadaMimic />}
         {activeTab === 'digital_twin' && <DigitalTwin3D />}
         {activeTab === 'bom' && <BomMemorial />}
+        {activeTab === 'knowledge' && (
+          <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
+            <TechnicalKnowledgeCenter />
+          </div>
+        )}
         {activeTab === 'ai_copilot' && <AiCopilotView />}
 
         {/* Global Floating AI Patch Alert if waiting for review in other tabs */}

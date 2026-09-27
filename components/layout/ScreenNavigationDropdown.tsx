@@ -10,6 +10,7 @@ import {
   Tv,
   Boxes,
   FileSpreadsheet,
+  BookOpenText,
   LayoutDashboard,
   Split,
   Layers,
@@ -83,6 +84,7 @@ export function ScreenNavigationDropdown({
         scada: 'Supervisório SCADA',
         digital_twin: 'Digital Twin 3D',
         bom: 'Relatórios BOM',
+        knowledge: 'Knowledge Center',
         ai_copilot: 'IA Copilot',
       }[activeTab];
 
@@ -266,6 +268,28 @@ export function ScreenNavigationDropdown({
                 </div>
               </div>
               {!isViewingLanding && activeTab === 'bom' && (
+                <Check className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+              )}
+            </button>
+
+            {/* Knowledge Center */}
+            <button
+              type="button"
+              onClick={() => handleNavigate('knowledge')}
+              className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-mono flex items-center justify-between transition-colors ${
+                !isViewingLanding && activeTab === 'knowledge'
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-bold'
+                  : 'text-slate-300 hover:text-white hover:bg-[#1E2430]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BookOpenText className="h-4 w-4 text-cyan-400 shrink-0" />
+                <div>
+                  <span className="block font-semibold">Knowledge Center &amp; Datasheets</span>
+                  <span className="text-[10px] text-slate-400">Especificações extraídas com evidência rastreável</span>
+                </div>
+              </div>
+              {!isViewingLanding && activeTab === 'knowledge' && (
                 <Check className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
               )}
             </button>

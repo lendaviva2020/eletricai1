@@ -13,6 +13,7 @@ import {
   Tv,
   Boxes,
   FileSpreadsheet,
+  BookOpenText,
   Bot,
   Sparkles,
   Home,
@@ -41,6 +42,7 @@ export function NavigationTabs() {
     { id: 'scada', label: 'SCADA Mímico', icon: Tv, badge: 'Sandbox Worker', accentColor: 'text-amber-400' },
     { id: 'digital_twin', label: 'Digital Twin 3D', icon: Boxes, badge: 'WebGL', accentColor: 'text-emerald-400' },
     { id: 'bom', label: 'BOM & Memorial', icon: FileSpreadsheet, badge: 'R$ NBR 5410', accentColor: 'text-cyan-400' },
+    { id: 'knowledge', label: 'Knowledge Center', icon: BookOpenText, badge: 'Datasheets', accentColor: 'text-cyan-400' },
     { id: 'ai_copilot', label: 'IA Copilot & Patch Diff', icon: Bot, badge: activePatch ? 'Patch Pendente' : 'IA Nativa', accentColor: 'text-amber-400' },
   ];
 

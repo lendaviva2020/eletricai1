@@ -18,6 +18,7 @@ export class EngineeringModelRegistry {
   private tags: Map<string, SharedTag> = new Map();
   private rungs: LadderRung[] = [];
   private circuits: Map<string, ElectricalCircuit> = new Map();
+  private generatedTagCounters: Map<string, number> = new Map();
 
   constructor(
     components: ElectricalComponent[] = [],
@@ -40,29 +41,45 @@ export class EngineeringModelRegistry {
     this.connections.clear();
     this.tags.clear();
     this.circuits.clear();
+    this.generatedTagCounters.clear();
 
     components.forEach(c => this.components.set(c.id, c));
     connections.forEach(cn => this.connections.set(cn.id, cn));
     tags.forEach(t => this.tags.set(t.id, t));
     circuits.forEach(cr => this.circuits.set(cr.id, cr));
     this.rungs = [...rungs];
+
+    // Initialize counters from existing components
+    for (const comp of this.components.values()) {
+      const match = comp.tag.match(/^([A-Z_]+)(\d+)$/);
+      if (match) {
+        const prefix = match[1];
+        const num = parseInt(match[2], 10);
+        const current = this.generatedTagCounters.get(prefix) || 0;
+        if (num > current) this.generatedTagCounters.set(prefix, num);
+      }
+    }
   }
 
   // Ensure unique TAG by checking collision and generating next available
   public generateUniqueTag(prefix: string): string {
     const cleanPrefix = prefix.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+
+    // Check existing components for case-insensitive collision
     const existingTags = new Set(
       Array.from(this.components.values()).map(c => c.tag.toUpperCase())
     );
 
-    let counter = 1;
-    let candidate = `${cleanPrefix}${counter.toString().padStart(2, '0')}`;
-    while (existingTags.has(candidate)) {
+    let counter = this.generatedTagCounters.get(cleanPrefix) || 0;
+    let candidate: string;
+
+    do {
       counter++;
       candidate = `${cleanPrefix}${counter.toString().padStart(2, '0')}`;
-    }
+    } while (existingTags.has(candidate));
 
-    return candidate;
+    this.generatedTagCounters.set(cleanPrefix, counter);
+    return candidate!;
   }
 
   // Cross-reference mapping across Unifilar, Ladder, and SCADA

@@ -73,6 +73,7 @@ export type WorkspaceTab =
   | 'scada'
   | 'digital_twin'
   | 'bom'
+  | 'knowledge'
   | 'ai_copilot';
 
 export type WhatIfScenario = 'normal' | 'overload_trip' | 'grid_failure' | 'phase_asymmetry' | 'high_temp';
