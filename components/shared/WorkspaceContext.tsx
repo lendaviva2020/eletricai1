@@ -61,7 +61,6 @@ import {
   INITIAL_TWIN_HOTSPOTS,
   INITIAL_BOM_ITEMS,
 } from '@/lib/sample-project';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
 
 export type WorkspaceTab =
   | 'dashboard'
@@ -97,7 +96,7 @@ interface WorkspaceContextValue {
   selectedComponentId: string | null;
   setSelectedComponentId: (id: string | null) => void;
   toggleBreakerState: (componentId: string) => void;
-  updateComponent: (id: string, updates: Partial<ElectricalComponent>) => void;
+  updateComponent: (id: string, updates: Partial<ElectricalComponent>, shouldPushSnapshot?: boolean) => void;
   addComponent: (component: ElectricalComponent) => void;
   deleteComponent: (id: string) => void;
   addConnection: (connection: ElectricalConnection) => void;
@@ -279,8 +278,35 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setTenant(loadedTenant);
         const projList = await getSupabaseProjects(loadedTenant.id);
         setProjects(projList);
-        if (projList.length > 0 && !activeProject) {
-          setActiveProject(projList[0]);
+        if (projList.length > 0) {
+          const savedProjId = typeof window !== 'undefined' ? localStorage.getItem('eletricai_active_proj_id') : null;
+          const targetProj = (savedProjId ? projList.find(p => p.id === savedProjId) : null) || projList[0];
+          setActiveProject(targetProj);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('eletricai_active_proj_id', targetProj.id);
+          }
+
+          try {
+            const [comps, conns, tags, rungs] = await Promise.all([
+              getProjectComponents(targetProj.id),
+              getProjectConnections(targetProj.id),
+              getProjectSharedTags(targetProj.id),
+              getProjectLadderRungs(targetProj.id),
+            ]);
+
+            if (comps.length > 0) {
+              setComponents(comps);
+              setSelectedComponentId(comps[0].id);
+              setSelectedComponentIds([comps[0].id]);
+            }
+            if (conns.length > 0) {
+              setConnections(conns);
+            }
+            if (tags.length > 0) setSharedTags(tags);
+            if (rungs.length > 0) setLadderRungs(rungs);
+          } catch (elemErr) {
+            console.warn('Erro ao carregar elementos salvos do projeto inicial:', elemErr);
+          }
         }
       }
       setIsAuthenticated(true);
@@ -289,7 +315,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Erro ao recuperar dados da conta no Supabase:', err);
     }
-  }, [activeProject]);
+  }, []);
 
   // Restore live Supabase session on mount and subscribe to auth state changes
   useEffect(() => {
@@ -380,16 +406,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [loadUserDataAndProjects]);
 
-  // Backward compatibility wrapper for demo quick buttons
-  const login = useCallback(async (email?: string) => {
-    const targetEmail = email || 'carlos.mendes@paulinia.ind.br';
-    const res = await loginWithCredentials(targetEmail, 'VoltAI#2026!Sec');
-    if (!res.success) {
-      // If credentials do not match, set demo context
-      setIsAuthenticated(true);
-      setIsViewingLanding(false);
-      setIsSelectingTenant(false);
-    }
+  // Wrapper de compatibilidade para call sites antigos (não usar em código
+  // novo — chame loginWithCredentials diretamente, como em
+  // IndustrialLoginScreen.tsx). Nunca força autenticação: sem uma senha real
+  // confirmada pelo Supabase, permanece deslogado.
+  const login = useCallback(async (email?: string, _role?: TenantRole) => {
+    if (!email) return;
+    await loginWithCredentials(email, '');
+    // Sem senha, loginWithCredentials sempre retorna success:false — o que é
+    // o comportamento correto. isAuthenticated só vira true de verdade dentro
+    // de loginWithCredentials/loadUserDataAndProjects quando o Supabase
+    // confirma uma sessão real.
   }, [loginWithCredentials]);
 
   const logout = useCallback(async () => {
@@ -398,7 +425,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.warn('Erro ao deslogar do Supabase:', e);
     }
-    DatabaseAuthService.setCurrentSession(null);
     setIsAuthenticated(false);
     setIsSelectingTenant(false);
     setIsViewingLanding(false);
@@ -636,9 +662,28 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return { success: false, error: res.error };
   }, [activeProject]);
 
-  const updateComponent = useCallback((id: string, updates: Partial<ElectricalComponent>) => {
-    pushSnapshot();
-    setComponents(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  const updateComponent = useCallback((id: string, updates: Partial<ElectricalComponent>, shouldPushSnapshot: boolean = true) => {
+    if (shouldPushSnapshot) pushSnapshot();
+    setComponents(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const newComp = { ...c, ...updates };
+
+      // Se a posição x ou y foi modificada, deslocar os bornes/ports proporcionalmente
+      if ((updates.x !== undefined && updates.x !== c.x) || (updates.y !== undefined && updates.y !== c.y)) {
+        const dx = (updates.x !== undefined ? updates.x : c.x) - c.x;
+        const dy = (updates.y !== undefined ? updates.y : c.y) - c.y;
+        if (c.ports && c.ports.length > 0) {
+          newComp.ports = c.ports.map(p => ({
+            ...p,
+            x: p.x + dx,
+            y: p.y + dy,
+          }));
+        }
+      }
+
+      return newComp;
+    }));
+    setSaveStatus('dirty');
   }, [pushSnapshot]);
 
   const addComponent = useCallback((comp: ElectricalComponent) => {

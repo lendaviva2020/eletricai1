@@ -245,7 +245,7 @@ export function ElementProperties({
           </div>
         )}
 
-        {/* Compare / Math Block Settings */}
+        {/* Compare Block Settings */}
         {element.elementType === 'COMPARE' && (
           <div className="p-2.5 rounded bg-[#161A22] border border-[#232833] space-y-2">
             <label className="text-[10px] text-slate-400 block mb-0.5">Operador de Comparação:</label>
@@ -269,6 +269,61 @@ export function ElementProperties({
                 onChange={e => onUpdateElement({ in2Value: Number(e.target.value) })}
                 className="w-full bg-[#0B0D10] border border-[#232833] rounded px-2 py-1 text-slate-200 text-xs focus:border-amber-500 outline-none"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Math Block Settings */}
+        {element.elementType === 'MATH' && (
+          <div className="p-2.5 rounded bg-[#161A22] border border-[#232833] space-y-2">
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+              <Calculator className="h-3.5 w-3.5" />
+              <span>Operação Matemática IEC</span>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">Operador Matemático:</label>
+              <select
+                value={element.mathOp || 'ADD'}
+                onChange={e => onUpdateElement({ mathOp: e.target.value as LadderMathOperator })}
+                className="w-full bg-[#0B0D10] border border-[#232833] rounded px-2 py-1 text-slate-200 text-xs focus:border-emerald-500 outline-none"
+              >
+                <option value="ADD">Soma (ADD)</option>
+                <option value="SUB">Subtração (SUB)</option>
+                <option value="MUL">Multiplicação (MUL)</option>
+                <option value="DIV">Divisão (DIV)</option>
+                <option value="MOD">Resto (MOD)</option>
+                <option value="MIN">Mínimo (MIN)</option>
+                <option value="MAX">Máximo (MAX)</option>
+                <option value="LIMIT">Limitador (LIMIT)</option>
+                <option value="ABS">Valor Absoluto (ABS)</option>
+                <option value="SQRT">Raiz Quadrada (SQRT)</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Entrada 1 (IN1):</label>
+                <input
+                  type="number"
+                  value={Number(element.in1Value ?? 0)}
+                  onChange={e => onUpdateElement({ in1Value: Number(e.target.value) })}
+                  className="w-full bg-[#0B0D10] border border-[#232833] rounded px-2 py-1 text-slate-200 text-xs focus:border-emerald-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Entrada 2 (IN2):</label>
+                <input
+                  type="number"
+                  value={Number(element.in2Value ?? 0)}
+                  onChange={e => onUpdateElement({ in2Value: Number(e.target.value) })}
+                  className="w-full bg-[#0B0D10] border border-[#232833] rounded px-2 py-1 text-slate-200 text-xs focus:border-emerald-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-slate-300 pt-1 border-t border-[#232833]">
+              <span>Resultado (OUT):</span>
+              <span className="text-emerald-400 font-bold font-mono">
+                {element.outValue !== undefined ? Number(element.outValue).toFixed(2) : '0.00'}
+              </span>
             </div>
           </div>
         )}

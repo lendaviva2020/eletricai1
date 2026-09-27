@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
+import { ElectricalAppIcon } from '@/components/shared/ElectricalAppIcon';
 import {
   Zap,
   ArrowRight,
@@ -76,9 +77,7 @@ export function LandingPage() {
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="flex items-center gap-2.5 text-left group"
             >
-              <div className="h-7 w-7 rounded bg-[#161A22] border border-[#232833] flex items-center justify-center text-amber-400 group-hover:border-amber-500/40 transition-colors">
-                <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-              </div>
+              <ElectricalAppIcon size="sm" withGlow />
               <div className="flex items-baseline gap-1.5">
                 <span className="font-bold text-base tracking-wider text-white">
                   VOLTAI
@@ -718,7 +717,7 @@ export function LandingPage() {
                 <ul className="space-y-2.5 text-xs text-[#8A8F98] mb-6">
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-[#06B6D4] shrink-0" />
-                    <span>Multi-tenant com isolamento RLS (Supabase)</span>
+                    <span>Multi-tenant com isolamento RLS e proteção por organização</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-[#06B6D4] shrink-0" />
@@ -759,9 +758,7 @@ export function LandingPage() {
             {/* Coluna 1: Branding & Identidade */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded bg-[#161A22] border border-[#232833] flex items-center justify-center text-amber-400">
-                  <Zap className="h-3 w-3 fill-amber-400" />
-                </div>
+                <ElectricalAppIcon size="xs" withGlow={false} />
                 <span className="font-bold text-sm tracking-wider text-white">VOLTAI</span>
               </div>
               <p className="text-[11px] leading-relaxed">
@@ -769,7 +766,7 @@ export function LandingPage() {
                 o mercado industrial brasileiro.
               </p>
               <div className="pt-1 text-[10px] font-mono text-slate-500">
-                PostgreSQL • Supabase RLS • IEC 61131-3
+                PostgreSQL • Isolamento RLS • IEC 61131-3
               </div>
             </div>
 

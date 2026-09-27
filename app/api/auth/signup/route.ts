@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!password || typeof password !== 'string' || password.length < 6) {
+    if (!password || typeof password !== 'string' || password.length < 8) {
       return NextResponse.json(
-        { success: false, error: 'A senha de acesso deve conter no mínimo 6 caracteres.' },
+        { success: false, error: 'A senha de acesso deve conter no mínimo 8 caracteres com letras, números e símbolos.' },
         { status: 400 }
       );
     }

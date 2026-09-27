@@ -244,6 +244,21 @@ export function LadderRungView({
                             <span className="text-[9px] text-slate-400">Ref: {Number(el.in2Value ?? 0)}</span>
                           </div>
                         )}
+
+                        {el.elementType === 'MATH' && (
+                          <div className="mt-1 flex flex-col items-center bg-[#0B0D10] px-2.5 py-1 rounded border border-[#2A313E]">
+                            <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 font-bold">
+                              <Calculator className="h-3 w-3" />
+                              <span>[{el.mathOp || 'ADD'}]</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400">
+                              {Number(el.in1Value ?? 0)} {el.mathOp === 'SUB' ? '-' : el.mathOp === 'MUL' ? '×' : el.mathOp === 'DIV' ? '÷' : '+'} {Number(el.in2Value ?? 0)}
+                            </span>
+                            <span className="text-[9px] text-emerald-300 font-bold font-mono">
+                              OUT: {el.outValue !== undefined ? Number(el.outValue).toFixed(1) : '0.0'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

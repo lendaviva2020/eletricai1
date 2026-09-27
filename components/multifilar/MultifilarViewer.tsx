@@ -5,6 +5,7 @@ import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { Split, Zap, AlertTriangle, Shield, CheckCircle2, Sliders } from 'lucide-react';
 import { UnifilarEngineeringEngine } from '@/lib/engineering/unifilar/unifilar-engine';
 import { MultifilarSchematicRouter, MultifilarSchematicData, PhaseConductor } from '@/lib/engineering/multifilar/schematic-router';
+import { CircuitSimulatorPanel } from '@/components/multifilar/CircuitSimulatorPanel';
 
 export function MultifilarViewer() {
   const { components, connections, sharedTags, ladderRungs, toggleBreakerState } = useWorkspace();
@@ -27,6 +28,12 @@ export function MultifilarViewer() {
 
   const [selectedCircuit, setSelectedCircuit] = useState<string>('all');
 
+  const [view, setView] = useState<'schematic' | 'simulator'>('schematic');
+
+  if (view === 'simulator') {
+    return <CircuitSimulatorPanel onBack={() => setView('schematic')} />;
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0B0D10] text-slate-200 select-none overflow-hidden">
       {/* Top Banner / Generator Status */}
@@ -48,6 +55,28 @@ export function MultifilarViewer() {
               Inferência física por tipo de carga e condutores ABNT NBR 5410 item 6.1.5.3
             </p>
           </div>
+        </div>
+
+        {/* View Switcher: project schematic vs circuit simulator */}
+        <div className="flex items-center gap-1 bg-[#161A22] border border-[#232833] p-1 rounded">
+          <button
+            type="button"
+            onClick={() => setView('schematic')}
+            className={`px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap ${
+              view === 'schematic'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Esquema do Projeto
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('simulator')}
+            className="px-2.5 py-1 text-xs font-mono rounded transition-colors whitespace-nowrap text-slate-400 hover:text-slate-200"
+          >
+            Simulador de Circuitos
+          </button>
         </div>
 
         {/* Circuit Selector Buttons */}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { PasswordRecoveryScreen } from '@/components/auth/PasswordRecoveryScreen';
 import { IndustrialSignUpScreen } from '@/components/auth/IndustrialSignUpScreen';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
+import { ElectricalAppIcon } from '@/components/shared/ElectricalAppIcon';
 import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
 import {
   Zap,
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 
 export function IndustrialLoginScreen() {
-  const { loginWithCredentials, login, tenant, setTenant, setIsViewingLanding } = useWorkspace();
+  const { loginWithCredentials, tenant, setTenant, setIsViewingLanding } = useWorkspace();
 
   // Mode: LOGIN or SIGNUP
   const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
@@ -88,48 +88,17 @@ export function IndustrialLoginScreen() {
     setLoginError(null);
     setIsLoading(true);
 
-    try {
-      // Execute authentication via Supabase client / service
-      const result = await DatabaseAuthService.loginWithCredentialsAsync(emailOrTag, password);
-      setIsLoading(false);
+    const result = await loginWithCredentials(emailOrTag.trim().toLowerCase(), password);
+    setIsLoading(false);
 
-      if (result.success && result.user) {
-        login(result.user.email, result.user.role);
-      } else {
-        const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');
-        login(emailOrTag, isBeatriz ? 'engineer' : 'admin');
-      }
-    } catch {
-      setIsLoading(false);
-      // Fallback local login
-      const isBeatriz = emailOrTag.toLowerCase().includes('beatriz');
-      login(emailOrTag, isBeatriz ? 'engineer' : 'admin');
+    if (!result.success) {
+      // SEM fallback: se a autenticação real falhou, o usuário fica na tela
+      // de login vendo o motivo. Não existe mais um caminho que loga "assim mesmo".
+      setLoginError(result.error ?? 'E-mail ou senha inválidos.');
+      return;
     }
-  };
-
-  const handleOAuthLogin = async (provider: 'google' | 'sso') => {
-    setIsLoading(true);
-    const targetEmail =
-      provider === 'google' ? 'eng.google@industria.com.br' : 'sso.corporativo@paulinia.ind.br';
-
-    try {
-      await DatabaseAuthService.loginWithCredentialsAsync(targetEmail, 'OAuthSSO#2026');
-      setIsLoading(false);
-      login(targetEmail, 'admin');
-    } catch {
-      setIsLoading(false);
-      login(targetEmail, 'admin');
-    }
-  };
-
-  const handleSelectQuickDemo = (profile: 'carlos' | 'beatriz') => {
-    if (profile === 'carlos') {
-      setEmailOrTag('carlos.mendes@paulinia.ind.br');
-      setPassword('AdminVolt#2026');
-    } else {
-      setEmailOrTag('beatriz.lima@usina.com.br');
-      setPassword('AutomaPLC#2026');
-    }
+    // Sucesso: loginWithCredentials já carregou perfil/tenant/projetos reais
+    // e setou isAuthenticated=true dentro do WorkspaceContext.
   };
 
   const handleSubmitDemoRequest = async (e: React.FormEvent) => {
@@ -145,13 +114,6 @@ export function IndustrialLoginScreen() {
         phone: demoCrea,
         plant_type: demoPlantType,
       });
-      DatabaseAuthService.registerEnterpriseLead({
-        name: demoEngineer,
-        email: demoEmail,
-        company: demoCompany,
-        phone: demoCrea,
-        plantType: demoPlantType,
-      });
     } catch (e) {
       console.warn('Lead dispatch note:', e);
     } finally {
@@ -166,6 +128,15 @@ export function IndustrialLoginScreen() {
       <PasswordRecoveryScreen
         defaultEmail={emailOrTag}
         onBackToLogin={() => setForgotPasswordOpen(false)}
+      />
+    );
+  }
+
+  // If user toggles to Sign Up / Criar Conta
+  if (authMode === 'SIGNUP') {
+    return (
+      <IndustrialSignUpScreen
+        onSwitchToLogin={() => setAuthMode('LOGIN')}
       />
     );
   }
@@ -216,9 +187,7 @@ export function IndustrialLoginScreen() {
         <div className="relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.35)] border border-amber-400/40">
-                <Zap className="h-6 w-6 text-[#0B0D10] stroke-[2.5]" />
-              </div>
+              <ElectricalAppIcon size="xl" withGlow />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xl font-black tracking-tight text-slate-100">
@@ -248,7 +217,7 @@ export function IndustrialLoginScreen() {
         <div className="relative z-10 my-8 sm:my-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1C212C] border border-[#232833] text-xs font-mono text-slate-300 mb-6">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Multi-Tenant Seguro • Supabase Auth & RLS</span>
+            <span>Multi-Tenant Seguro • Isolamento RLS & TLS 1.3</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-100 tracking-tight leading-[1.15]">
@@ -260,7 +229,7 @@ export function IndustrialLoginScreen() {
 
           <p className="mt-4 text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
             Plataforma CAD unifilar, diagramas multifilares, lógica Ladder IEC 61131-3, rack CLP S7-1500,
-            SCADA e gêmeo digital 3D. Tudo sincronizado via Supabase em tempo real.
+            SCADA e gêmeo digital 3D. Tudo sincronizado em tempo real com alta disponibilidade.
           </p>
 
           {/* REALTIME SYSTEM TELEMETRY STRIP */}
@@ -314,8 +283,8 @@ export function IndustrialLoginScreen() {
 
           <div className="flex items-center gap-2">
             <Database className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-[11px] text-slate-400">
-              {isSupabaseConfigured ? 'Supabase DB Conectado' : 'Supabase Client Ativo (Modo Local/Fallback)'}
+            <span className="text-xs text-slate-400">
+              {isSupabaseConfigured ? 'Nuvem Industrial Conectada' : 'Modo Seguro Conectado'}
             </span>
           </div>
         </div>
@@ -331,65 +300,41 @@ export function IndustrialLoginScreen() {
           <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
 
           {/* CARD HEADER */}
-          <div className="mb-6">
+          <div className="mb-5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-amber-400 uppercase tracking-widest font-bold flex items-center gap-1.5">
+              <span className="text-xs font-mono text-amber-400 uppercase tracking-widest font-bold flex items-center gap-1.5">
                 <Radio className="h-3 w-3 animate-pulse text-amber-400" />
                 Acesso Seguro
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1C212C] border border-[#232833] text-slate-400">
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#1C212C] border border-[#232833] text-slate-400">
                 SSL 256-bit
               </span>
             </div>
 
-            <h2 className="text-2xl font-bold text-slate-100 tracking-tight mt-2">
+            {/* Auth Mode Tabs (Entrar / Criar Conta) */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-[#11141A] border border-[#232833] rounded-lg mt-3">
+              <button
+                type="button"
+                onClick={() => setAuthMode('LOGIN')}
+                className="py-1.5 text-xs font-semibold rounded transition-all bg-amber-500/10 text-amber-400 border border-amber-500/30"
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('SIGNUP')}
+                className="py-1.5 text-xs font-semibold rounded transition-all text-slate-400 hover:text-slate-200 hover:bg-[#1C212C]"
+              >
+                Criar Conta
+              </button>
+            </div>
+
+            <h2 className="text-2xl font-bold text-slate-100 tracking-tight mt-3">
               Acesse seu Workspace
             </h2>
             <p className="text-xs text-slate-400 mt-1 font-mono">
               Entre com suas credenciais industriais
             </p>
-          </div>
-
-          {/* QUICK DEMO PROFILES (1-CLICK TEST) */}
-          <div className="mb-6 p-3 rounded-xl bg-[#11141A] border border-[#232833]">
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-2">
-              <span className="flex items-center gap-1 text-amber-400 font-semibold">
-                <KeyRound className="h-3 w-3" />
-                Preenchimento Rápido (Demo):
-              </span>
-              <span className="text-[10px] text-slate-500">Clique para testar</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleSelectQuickDemo('carlos')}
-                className={`px-2.5 py-1.5 rounded text-left transition-all border text-xs font-mono flex flex-col ${
-                  emailOrTag.includes('carlos')
-                    ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
-                    : 'bg-[#161A22] border-[#232833] text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                <span className="font-bold flex items-center gap-1">
-                  Eng. Carlos Mendes
-                </span>
-                <span className="text-[10px] text-slate-400">Admin (CREA-SP)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectQuickDemo('beatriz')}
-                className={`px-2.5 py-1.5 rounded text-left transition-all border text-xs font-mono flex flex-col ${
-                  emailOrTag.includes('beatriz')
-                    ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-300'
-                    : 'bg-[#161A22] border-[#232833] text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                <span className="font-bold flex items-center gap-1">
-                  Engª. Beatriz Lima
-                </span>
-                <span className="text-[10px] text-slate-400">Automação / CLP</span>
-              </button>
-            </div>
           </div>
 
           {/* LOGIN FORM */}
@@ -493,7 +438,7 @@ export function IndustrialLoginScreen() {
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 border-2 border-[#0B0D10] border-t-transparent rounded-full animate-spin" />
-                    <span>Autenticando via Supabase...</span>
+                    <span>Autenticando Workspace...</span>
                   </div>
                 ) : (
                   <>
@@ -507,18 +452,22 @@ export function IndustrialLoginScreen() {
 
           {/* OAUTH SSO ALTERNATIVES */}
           <div className="mt-6 pt-5 border-t border-[#232833]">
-            <span className="block text-center text-[10px] uppercase font-mono text-slate-400 mb-3 tracking-wider">
-              Ou autenticar com credenciais corporativas
+            <span className="block text-center text-xs uppercase font-mono text-slate-300 mb-1 tracking-wider font-semibold">
+              Autenticação Corporativa SSO
+            </span>
+            <span className="block text-center text-xs text-slate-400 mb-3 font-mono">
+              Provedores de Identidade Corporativa (SAML / OIDC)
             </span>
 
             <div className="grid grid-cols-2 gap-2.5">
               {/* Google Workspace Button */}
               <button
                 type="button"
-                onClick={() => handleOAuthLogin('google')}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#1C212C] border border-[#232833] hover:border-slate-500 hover:bg-[#232833] text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                disabled
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#141720] border border-[#232833] text-xs font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                title="Em breve — Provedor Corporativo"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 opacity-50" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -542,31 +491,43 @@ export function IndustrialLoginScreen() {
               {/* Enterprise SSO / GitHub Button */}
               <button
                 type="button"
-                onClick={() => handleOAuthLogin('sso')}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#1C212C] border border-[#232833] hover:border-slate-500 hover:bg-[#232833] text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                disabled
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-[#141720] border border-[#232833] text-xs font-semibold text-slate-500 cursor-not-allowed opacity-60"
+                title="Em breve — Provedor Corporativo"
               >
-                <Building2 className="h-4 w-4 text-cyan-400" />
+                <Building2 className="h-4 w-4 text-slate-500" />
                 <span>SSO Corporativo</span>
               </button>
             </div>
           </div>
 
           {/* CARD FOOTER */}
-          <div className="mt-7 pt-4 border-t border-[#232833] text-center">
+          <div className="mt-6 pt-4 border-t border-[#232833] text-center space-y-3">
+            <div>
+              <button
+                type="button"
+                onClick={() => setAuthMode('SIGNUP')}
+                className="w-full py-2.5 px-4 rounded-lg bg-[#1C212C] hover:bg-[#232936] border border-[#232833] hover:border-amber-500/50 text-slate-200 hover:text-amber-400 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <UserPlus className="h-4 w-4 text-amber-400" />
+                <span>Criar Conta Industrial</span>
+              </button>
+            </div>
+
             <p className="text-xs text-slate-400">
-              Não possui conta?{' '}
+              Precisa de proposta dedicada?{' '}
               <button
                 type="button"
                 onClick={() => setRequestDemoOpen(true)}
                 className="text-amber-400 hover:text-amber-300 font-bold hover:underline ml-1"
               >
-                Solicitar demonstração ou cadastro
+                Solicitar demo Enterprise
               </button>
             </p>
 
-            <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-slate-400 font-mono">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Protegido por Supabase Multi-Tenant RLS • Conformidade ABNT</span>
+            <div className="pt-1 flex items-center justify-center gap-2 text-xs text-slate-400 font-mono">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>Isolamento Multi-Tenant RLS • Conformidade ABNT NBR 5410</span>
             </div>
           </div>
         </div>
@@ -593,7 +554,7 @@ export function IndustrialLoginScreen() {
                 <div className="h-12 w-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3 border border-emerald-500/40">
                   <CheckCircle2 className="h-7 w-7" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-100">Solicitação Registrada no Supabase!</h3>
+                <h3 className="text-lg font-bold text-slate-100">Solicitação Registrada com Sucesso!</h3>
                 <p className="text-xs text-slate-300 mt-2 max-w-sm mx-auto">
                   Sua solicitação foi salva com sucesso no banco de dados. Nossa equipe de engenharia de aplicação
                   entrará em contato para provisionar seu ambiente com isolamento multi-tenant.
@@ -603,12 +564,11 @@ export function IndustrialLoginScreen() {
                   onClick={() => {
                     setRequestDemoOpen(false);
                     setDemoSubmitted(false);
-                    // Log in as Carlos for immediate testing
-                    login('carlos.mendes@paulinia.ind.br', 'admin');
+                    setAuthMode('SIGNUP');
                   }}
                   className="mt-5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-[#0B0D10] text-xs font-bold rounded-lg"
                 >
-                  Explorar Workspace Imediatamente (Modo Avaliação)
+                  Criar Conta e Acessar Workspace
                 </button>
               </div>
             ) : (
@@ -621,7 +581,7 @@ export function IndustrialLoginScreen() {
                 </div>
                 <p className="text-xs text-slate-400 mb-4">
                   Cadastre sua indústria ou escritório de engenharia para receber uma instância
-                  dedicada com isolamento Row Level Security (RLS) no Supabase.
+                  dedicada com isolamento Row Level Security (RLS) em nuvem privada.
                 </p>
 
                 <form onSubmit={handleSubmitDemoRequest} className="space-y-3">
@@ -710,7 +670,7 @@ export function IndustrialLoginScreen() {
                       disabled={isDemoSubmitting}
                       className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-[#0B0D10] text-xs font-bold uppercase tracking-wide disabled:opacity-50"
                     >
-                      {isDemoSubmitting ? 'Salvando no Supabase...' : 'Enviar Solicitação'}
+                      {isDemoSubmitting ? 'Salvando solicitação...' : 'Enviar Solicitação'}
                     </button>
                   </div>
                 </form>

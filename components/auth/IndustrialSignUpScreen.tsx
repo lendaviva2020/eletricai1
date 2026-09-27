@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
+import { ElectricalAppIcon } from '@/components/shared/ElectricalAppIcon';
 import { supabase } from '@/lib/supabase';
 import {
   Zap,
@@ -17,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileCheck2,
+  X,
 } from 'lucide-react';
 
 interface IndustrialSignUpScreenProps {
@@ -55,8 +57,13 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
       return;
     }
 
-    if (!password || password.length < 6) {
-      setErrorMsg('A senha de acesso deve ter pelo menos 6 caracteres.');
+    const hasMinLength = password.length >= 8;
+    const hasUpperLower = /[a-z]/.test(password) && /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
+
+    if (!hasMinLength || !hasUpperLower || !hasNumber || !hasSpecial) {
+      setErrorMsg('A senha precisa ter no mínimo 8 caracteres com maiúsculas, minúsculas, números e caracteres especiais.');
       return;
     }
 
@@ -135,20 +142,18 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
         <div className="relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.35)] border border-amber-400/40">
-                <Zap className="h-6 w-6 text-[#0B0D10] stroke-[2.5]" />
-              </div>
+              <ElectricalAppIcon size="xl" withGlow />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xl font-black tracking-tight text-slate-100">
                     ELETRIC<span className="text-amber-400">AI</span>
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">
+                  <span className="px-2 py-0.5 text-xs font-mono font-semibold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">
                     NOVO CADASTRO
                   </span>
                 </div>
                 <span className="text-xs text-slate-400 font-mono block">
-                  Ambiente Industrial em Nuvem Supabase
+                  Ambiente Industrial Seguro em Nuvem
                 </span>
               </div>
             </div>
@@ -167,7 +172,7 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
         <div className="relative z-10 my-8 sm:my-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1C212C] border border-[#232833] text-xs font-mono text-slate-300 mb-6">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>PostgreSQL Supabase com Isolamento Multi-Tenant & RLS</span>
+            <span>PostgreSQL com Isolamento Multi-Tenant & RLS</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-100 tracking-tight leading-[1.15]">
@@ -197,7 +202,7 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
         <div className="relative z-10 text-xs text-slate-500 font-mono flex items-center gap-4">
           <span>ElétricAi v3.8 Industrial Cloud</span>
           <span>•</span>
-          <span>Banco Supabase Live</span>
+          <span>Nuvem Industrial Conectada</span>
         </div>
       </div>
 
@@ -314,7 +319,7 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Senha <span className="text-amber-400">*</span>
+                  Senha (Mín. 8 caracteres & símbolos) <span className="text-amber-400">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -324,7 +329,7 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 dígitos"
+                    placeholder="Ex: Eletric#2026@Eng"
                     required
                     className="w-full pl-9 pr-8 py-2 bg-[#1C212C] border border-[#232833] rounded-lg text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] transition-all font-mono"
                   />
@@ -350,13 +355,35 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="Repita a senha"
+                    placeholder="Repita a senha digitada"
                     required
                     className="w-full pl-9 pr-3 py-2 bg-[#1C212C] border border-[#232833] rounded-lg text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] transition-all font-mono"
                   />
                 </div>
               </div>
             </div>
+
+            {/* Password Criteria Checklist */}
+            {password && (
+              <div className="p-2.5 bg-[#11141A] rounded-lg border border-[#232833] grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+                <div className={`flex items-center gap-1.5 ${password.length >= 8 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {password.length >= 8 ? <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <X className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
+                  <span>8+ caracteres</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${/[a-z]/.test(password) && /[A-Z]/.test(password) ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {/[a-z]/.test(password) && /[A-Z]/.test(password) ? <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <X className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
+                  <span>Maiúsc./minúsc.</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {/[0-9]/.test(password) ? <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <X className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
+                  <span>Número (0-9)</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password) ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password) ? <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <X className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
+                  <span>Símbolo (!@#...)</span>
+                </div>
+              </div>
+            )}
 
             {/* Terms checkbox */}
             <div className="pt-1">
@@ -388,7 +415,7 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 border-2 border-[#0B0D10] border-t-transparent rounded-full animate-spin" />
-                    <span>Criando Conta Real no Supabase...</span>
+                    <span>Criando Conta Industrial...</span>
                   </div>
                 ) : (
                   <>
@@ -413,9 +440,9 @@ export function IndustrialSignUpScreen({ onSwitchToLogin }: IndustrialSignUpScre
               </button>
             </p>
 
-            <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-slate-400 font-mono">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Autenticação Real Supabase • Criptografia TLS 1.3</span>
+            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400 font-mono">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>Autenticação Segura • Criptografia TLS 1.3 • RLS Multi-Tenant</span>
             </div>
           </div>
         </div>

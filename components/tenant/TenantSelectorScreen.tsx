@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '@/components/shared/WorkspaceContext';
 import { Tenant, TenantRole } from '@/types/electrical';
+import { ElectricalAppIcon } from '@/components/shared/ElectricalAppIcon';
 import { SupabaseDataService, isSupabaseConfigured } from '@/lib/supabase';
-import { DatabaseAuthService } from '@/lib/database-auth-service';
 import {
   Zap,
   Building2,
@@ -255,17 +255,6 @@ export function TenantSelectorScreen() {
         members_count: 1,
         category: 'enterprise',
       });
-      DatabaseAuthService.addTenant({
-        name: newCard.name,
-        subname: newCard.subname,
-        cnpj: newCard.cnpj,
-        location: newCard.location,
-        plan: 'Enterprise Multi-Plant',
-        voltage: newVoltage,
-        tagsCount: 48,
-        membersCount: 1,
-        category: 'enterprise',
-      });
     } catch (err) {
       console.warn('Supabase tenant creation note:', err);
     }
@@ -291,18 +280,16 @@ export function TenantSelectorScreen() {
           1. TOP NAVIGATION HEADER
       ======================================================== */}
       <header className="h-16 w-full bg-[#11141A] border-b border-[#232833] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30 shadow-md">
-        {/* Left: EletricAI Logo with glowing amber bolt icon and "VOLTAI Engine v2.4 - Workspace Router" */}
+        {/* Left: EletricAI Logo with glowing amber electrical icon */}
         <div className="flex items-center gap-3.5">
-          <div className="h-9 w-9 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.3)]">
-            <Zap className="h-5 w-5 fill-amber-400" />
-          </div>
+          <ElectricalAppIcon size="md" withGlow />
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg tracking-wider text-slate-100 font-sans">
                 ELETRIC<span className="text-amber-400 font-black">AI</span>
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-mono font-bold tracking-tight">
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold tracking-tight">
                 VOLTAI Engine v2.4
               </span>
               <span className="text-slate-500 text-xs hidden sm:inline">•</span>
@@ -310,7 +297,7 @@ export function TenantSelectorScreen() {
                 Workspace Router
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-xs text-slate-400 font-mono">
               Sistema Operacional Industrial com Isolamento RLS Multi-Tenant
             </span>
           </div>
@@ -329,10 +316,10 @@ export function TenantSelectorScreen() {
                 Eng. Luis Felipe
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono text-cyan-400 font-medium">
+                <span className="text-xs font-mono text-cyan-400 font-medium">
                   System Engineer
                 </span>
-                <span className="text-[9px] text-slate-500 font-mono">• CREA-PR</span>
+                <span className="text-xs text-slate-400 font-mono">• CREA-PR</span>
               </div>
             </div>
           </div>
@@ -358,8 +345,8 @@ export function TenantSelectorScreen() {
           {/* Header Text & Search / Filter Bar */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-[#232833]">
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-mono mb-2">
-                <ShieldCheck className="h-3 w-3" />
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono mb-2">
+                <ShieldCheck className="h-3.5 w-3.5" />
                 <span>ROW LEVEL SECURITY (RLS) ISOLATION ENABLED</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
@@ -427,7 +414,7 @@ export function TenantSelectorScreen() {
                           <h3 className="font-bold text-sm sm:text-base text-slate-100 leading-snug">
                             {item.name}
                           </h3>
-                          <span className="text-[10px] text-slate-400 font-mono block">
+                          <span className="text-xs text-slate-400 font-mono block">
                             {item.location}
                           </span>
                         </div>
@@ -446,7 +433,7 @@ export function TenantSelectorScreen() {
                           </span>
                         )}
                         {item.roleLabel === 'OWNER / MEMBER' && (
-                          <span className="px-2 py-1 rounded bg-[#1C212C] border border-[#232833] text-slate-300 text-[10px] font-mono font-bold tracking-wider inline-block">
+                          <span className="px-2.5 py-1 rounded bg-[#1C212C] border border-[#232833] text-slate-300 text-xs font-mono font-bold tracking-wider inline-block">
                             OWNER / MEMBER
                           </span>
                         )}
@@ -462,12 +449,12 @@ export function TenantSelectorScreen() {
                       {item.metrics.map((metric, mIdx) => (
                         <div
                           key={mIdx}
-                          className="flex items-center justify-between text-[11px] pb-1.5 border-b border-[#232833]/60 last:border-b-0 last:pb-0"
+                          className="flex items-center justify-between text-xs pb-1.5 border-b border-[#232833]/60 last:border-b-0 last:pb-0"
                         >
                           <span className="text-slate-400">{metric.label}:</span>
 
                           {metric.isStatus ? (
-                            <span className="flex items-center gap-1.5 text-emerald-400 font-bold text-[10px]">
+                            <span className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
                               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                               {metric.value}
                             </span>
@@ -576,7 +563,7 @@ export function TenantSelectorScreen() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 text-emerald-400">
               <ShieldCheck className="h-4 w-4" />
-              <span>Supabase RLS Tenant Security: 100% Ativo & Isolado</span>
+              <span>Isolamento Multi-Tenant RLS: 100% Ativo & Protegido</span>
             </div>
             <span className="hidden sm:inline text-slate-600">|</span>
             <div className="flex items-center gap-1.5 text-slate-300">
