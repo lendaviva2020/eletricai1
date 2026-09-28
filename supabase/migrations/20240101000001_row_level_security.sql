@@ -47,135 +47,163 @@ ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
 
 -- 1. Tenants Policies
+DROP POLICY IF EXISTS "Users can view their own tenant" ON public.tenants;
 CREATE POLICY "Users can view their own tenant"
   ON public.tenants FOR SELECT
   USING (id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Admins can update their tenant" ON public.tenants;
 CREATE POLICY "Admins can update their tenant"
   ON public.tenants FOR UPDATE
   USING (id = public.get_auth_tenant_id() AND public.get_auth_role() = 'admin')
   WITH CHECK (id = public.get_auth_tenant_id());
 
 -- 2. Profiles Policies
+DROP POLICY IF EXISTS "Users can view profiles within their tenant" ON public.profiles;
 CREATE POLICY "Users can view profiles within their tenant"
   ON public.profiles FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
   USING (id = auth.uid() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id());
 
+DROP POLICY IF EXISTS "Admins can insert profiles in their tenant" ON public.profiles;
 CREATE POLICY "Admins can insert profiles in their tenant"
   ON public.profiles FOR INSERT
   WITH CHECK (tenant_id = public.get_auth_tenant_id() AND (public.get_auth_role() = 'admin' OR auth.role() = 'service_role'));
 
+DROP POLICY IF EXISTS "Admins can delete profiles in their tenant" ON public.profiles;
 CREATE POLICY "Admins can delete profiles in their tenant"
   ON public.profiles FOR DELETE
   USING (tenant_id = public.get_auth_tenant_id() AND (public.get_auth_role() = 'admin' OR auth.role() = 'service_role'));
 
 -- 3. Projects Policies
+DROP POLICY IF EXISTS "Tenant isolation for projects select" ON public.projects;
 CREATE POLICY "Tenant isolation for projects select"
   ON public.projects FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for projects insert" ON public.projects;
 CREATE POLICY "Tenant isolation for projects insert"
   ON public.projects FOR INSERT
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for projects update" ON public.projects;
 CREATE POLICY "Tenant isolation for projects update"
   ON public.projects FOR UPDATE
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for projects delete" ON public.projects;
 CREATE POLICY "Tenant isolation for projects delete"
   ON public.projects FOR DELETE
   USING ((tenant_id = public.get_auth_tenant_id() AND public.get_auth_role() = 'admin') OR auth.role() = 'service_role');
 
 -- 4. Shared Tags Policies
+DROP POLICY IF EXISTS "Tenant isolation for shared_tags select" ON public.shared_tags;
 CREATE POLICY "Tenant isolation for shared_tags select"
   ON public.shared_tags FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for shared_tags insert" ON public.shared_tags;
 CREATE POLICY "Tenant isolation for shared_tags insert"
   ON public.shared_tags FOR INSERT
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for shared_tags update" ON public.shared_tags;
 CREATE POLICY "Tenant isolation for shared_tags update"
   ON public.shared_tags FOR UPDATE
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for shared_tags delete" ON public.shared_tags;
 CREATE POLICY "Tenant isolation for shared_tags delete"
   ON public.shared_tags FOR DELETE
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 5. Components Policies
+DROP POLICY IF EXISTS "Tenant isolation for components select" ON public.components;
 CREATE POLICY "Tenant isolation for components select"
   ON public.components FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for components insert" ON public.components;
 CREATE POLICY "Tenant isolation for components insert"
   ON public.components FOR INSERT
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for components update" ON public.components;
 CREATE POLICY "Tenant isolation for components update"
   ON public.components FOR UPDATE
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for components delete" ON public.components;
 CREATE POLICY "Tenant isolation for components delete"
   ON public.components FOR DELETE
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 6. Connections Policies
+DROP POLICY IF EXISTS "Tenant isolation for connections" ON public.connections;
 CREATE POLICY "Tenant isolation for connections"
   ON public.connections FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 7. PLC Racks Policies
+DROP POLICY IF EXISTS "Tenant isolation for plc_racks" ON public.plc_racks;
 CREATE POLICY "Tenant isolation for plc_racks"
   ON public.plc_racks FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 8. Ladder Rungs Policies
+DROP POLICY IF EXISTS "Tenant isolation for ladder_rungs" ON public.ladder_rungs;
 CREATE POLICY "Tenant isolation for ladder_rungs"
   ON public.ladder_rungs FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 9. SCADA Widgets Policies
+DROP POLICY IF EXISTS "Tenant isolation for scada_widgets" ON public.scada_widgets;
 CREATE POLICY "Tenant isolation for scada_widgets"
   ON public.scada_widgets FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 10. Digital Twin Hotspots Policies
+DROP POLICY IF EXISTS "Tenant isolation for twin_hotspots" ON public.twin_hotspots;
 CREATE POLICY "Tenant isolation for twin_hotspots"
   ON public.twin_hotspots FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 11. BOM Items Policies
+DROP POLICY IF EXISTS "Tenant isolation for bom_items" ON public.bom_items;
 CREATE POLICY "Tenant isolation for bom_items"
   ON public.bom_items FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 12. Alerts Policies
+DROP POLICY IF EXISTS "Tenant isolation for alerts select" ON public.alerts;
 CREATE POLICY "Tenant isolation for alerts select"
   ON public.alerts FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for alerts modify" ON public.alerts;
 CREATE POLICY "Tenant isolation for alerts modify"
   ON public.alerts FOR ALL
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role')
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
 -- 13. Activity Events Policies
+DROP POLICY IF EXISTS "Tenant isolation for activity_events select" ON public.activity_events;
 CREATE POLICY "Tenant isolation for activity_events select"
   ON public.activity_events FOR SELECT
   USING (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Tenant isolation for activity_events insert" ON public.activity_events;
 CREATE POLICY "Tenant isolation for activity_events insert"
   ON public.activity_events FOR INSERT
   WITH CHECK (tenant_id = public.get_auth_tenant_id() OR auth.role() = 'service_role');
